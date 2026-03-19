@@ -4,7 +4,6 @@
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 <title>queda. — Planes sin caos</title>
-<meta name="description" content="Crea un plan, comparte el código con tu grupo y el sistema encuentra la mejor fecha."/>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>"/>
 <link rel="preconnect" href="https://fonts.googleapis.com"/>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Syne:wght@700;800&family=DM+Sans:wght@400;500;600&display=swap"/>
@@ -14,494 +13,1277 @@
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/@emailjs/browser@4/dist/email.min.js"></script>
 <style>
-  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'DM Sans', system-ui, sans-serif; min-height: 100vh; transition: background .2s, color .2s; }
-  body.dark { background: #0A0A0A; color: #F0EBE1; }
-  body.light { background: #F8F7F4; color: #1A1A1A; }
-  input, textarea, select, button { font-family: inherit; }
-  input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
-  ::-webkit-scrollbar { width: 6px; }
-  body.dark ::-webkit-scrollbar-track { background: #141414; } body.dark ::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
-  body.light ::-webkit-scrollbar-track { background: #eee; } body.light ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 3px; }
-  a { color: inherit; }
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: 'DM Sans', system-ui, sans-serif; min-height: 100vh; }
+body.dark { background: #0A0A0A; color: #F0EBE1; }
+body.light { background: #F5F4F1; color: #1A1A1A; }
+input, textarea, select, button { font-family: inherit; }
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+a { color: inherit; }
 </style>
 </head>
 <body>
 <div id="root"></div>
 <script type="text/babel">
+const { useState, useEffect, useCallback, useMemo } = React;
 
-// ════════════════════ SUPABASE ════════════════════
+// ══════════════════════════════════════════
+// CONFIG
+// ══════════════════════════════════════════
 const SUPABASE_URL = 'https://gxkdibhfzjkjxuuhuwfv.supabase.co';
 const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imd4a2RpYmhmempranh1dWh1d2Z2Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzM5MzI2MzksImV4cCI6MjA4OTUwODYzOX0.mjxrUTzVjCverPfyKORYuArcq-j07B_kfm6j3MLWev4';
-
-// ════════════════════ EMAILJS ════════════════════
-// Crea cuenta en emailjs.com → añade tus IDs aquí
 const EJS_SVC = 'PEGA_SERVICE_ID';
 const EJS_TPL = 'PEGA_TEMPLATE_ID';
 const EJS_KEY = 'PEGA_PUBLIC_KEY';
 const EMAIL_ON = EJS_SVC !== 'PEGA_SERVICE_ID';
-// ════════════════════════════════════════════════
 
-const { useState, useEffect, useCallback } = React;
 const db = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-// ── Tema ──────────────────────────────────────────
-function getSysTheme(){ return window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light'; }
-function applyTheme(t){ document.body.className=t; localStorage.setItem('queda_theme',t); }
-function dk(t){ return t==='dark'; }
-
-// ── Colores ───────────────────────────────────────
-function C(t){ return dk(t)
-  ? {A:'#CDFF6C',BG:'#0A0A0A',CARD:'#141414',CARD2:'#1C1C1C',BD:'#262626',T:'#F0EBE1',M:'#555',M2:'#888'}
-  : {A:'#4A8800',BG:'#F8F7F4',CARD:'#FFFFFF',CARD2:'#F0EEE9',BD:'#E0DDD6',T:'#1A1A1A',M:'#999',M2:'#666'}; }
-
-// ── Utils ─────────────────────────────────────────
-const genId=()=>Math.random().toString(36).substring(2,7).toUpperCase();
-const getNextDays=n=>Array.from({length:n||21},(_,i)=>{const d=new Date();d.setDate(d.getDate()+i+1);d.setHours(0,0,0,0);return d.toISOString().split('T')[0];});
-const fmtDate=iso=>{const d=new Date(iso+'T12:00:00');return d.toLocaleDateString('es-ES',{weekday:'long',day:'numeric',month:'long'});};
-const fmtShort=iso=>{const d=new Date(iso+'T12:00:00');return d.toLocaleDateString('es-ES',{weekday:'short',day:'numeric',month:'short'});};
-const HOURS=['18:00','19:00','20:00','21:00','22:00','23:00','00:00','01:00','02:00','03:00'];
-const CATS=['🍽️ Restaurante','🍸 Bar','🎉 Discoteca','☕ Café','🎭 Actividad','🏠 Casa','🍕 Informal','📍 Otro'];
-const WX={0:'☀️ Despejado',1:'🌤️ Casi despejado',2:'⛅ Parcialmente nublado',3:'☁️ Nublado',45:'🌫️ Niebla',51:'🌦️ Llovizna',61:'🌧️ Lluvia',63:'🌧️ Lluvia moderada',80:'🌧️ Chubascos',95:'⛈️ Tormenta'};
-
-// ── Perfil local ──────────────────────────────────
-const getMyPlans=()=>{try{return JSON.parse(localStorage.getItem('queda_plans')||'[]');}catch{return[];}};
-const addMyPlan=(id,name,role)=>{const p=getMyPlans().filter(x=>x.id!==id);localStorage.setItem('queda_plans',JSON.stringify([{id,name,role,at:new Date().toISOString()},...p].slice(0,20)));};
-
-// ── Supabase ──────────────────────────────────────
-const savePlan=async p=>{await db.from('plans').upsert({id:p.id,data:p});};
-const loadPlan=async id=>{const{data}=await db.from('plans').select('data').eq('id',id).single();return data?.data||null;};
-const updatePlan=async p=>{await db.from('plans').update({data:p}).eq('id',p.id);};
-const saveResp=async(planId,name,resp)=>{const{data:ex}=await db.from('responses').select('id').eq('plan_id',planId).eq('name',name).single();if(ex){await db.from('responses').update({data:resp}).eq('id',ex.id);}else{await db.from('responses').insert({plan_id:planId,name,data:resp});}};
-const loadResps=async id=>{const{data}=await db.from('responses').select('data').eq('plan_id',id);return(data||[]).map(r=>r.data);};
-
-// ── Email ─────────────────────────────────────────
-const sendEmail=async(plan,who,dates)=>{
-  if(!EMAIL_ON||!plan.organizerEmail)return;
-  try{await emailjs.send(EJS_SVC,EJS_TPL,{to_email:plan.organizerEmail,to_name:plan.organizer,plan_name:plan.name,responder_name:who,dates_available:dates.join(', ')||'Ninguna',plan_code:plan.id,plan_url:location.href.split('?')[0]+'?code='+plan.id},EJS_KEY);}catch(e){console.log('email:',e);}
+// ══════════════════════════════════════════
+// TRADUCCIONES
+// ══════════════════════════════════════════
+const LANG = {
+  es: {
+    appTagline: 'Planes sin caos.',
+    appSub: 'Fechas, horarios, ruta, presupuesto, regalo, transporte y clima — todo en un código.',
+    createPlan: 'Crear un plan →',
+    myPlans: '👤 Mis planes',
+    orJoin: 'o únete',
+    codePlaceholder: 'Código del plan',
+    go: 'Ir',
+    codeNotFound: 'Código no encontrado. ¿Está bien escrito?',
+    howItWorks: 'Cómo funciona',
+    step1: 'Crea un plan con fechas y horarios',
+    step2: 'Comparte el código o link por WhatsApp',
+    step3: 'Cada uno marca cuándo puede',
+    step4: 'Confirma la fecha y avisa al grupo',
+    back: '← Volver',
+    continue: 'Continuar →',
+    basics: 'Lo básico',
+    planName: 'Nombre del plan',
+    planNamePh: 'Cumpleaños, cena, escapada...',
+    description: 'Descripción (opcional)',
+    descPh: 'Detalles, dress code...',
+    yourName: 'Tu nombre',
+    yourNamePh: '¿Cómo te llamas?',
+    yourEmail: 'Tu email (para notificaciones)',
+    emailPh: 'tu@email.com',
+    datesAndTimes: 'Fechas y horarios',
+    datesAndTimesSub: 'Selecciona fechas y los horarios posibles.',
+    possibleTimes: 'Horarios posibles',
+    routeAndBudget: 'Ruta y presupuesto',
+    routeSub: 'Añade los sitios en orden.',
+    city: 'Ciudad (para el clima)',
+    cityPh: 'Madrid, Barcelona...',
+    stop: 'Parada',
+    placeName: 'Nombre del lugar',
+    address: 'Dirección',
+    costPer: '€ por persona',
+    bookingLink: 'Link reserva/web',
+    stripeLink: 'Link de pago Stripe (opcional)',
+    addStop: '+ Añadir parada',
+    estimatedPer: 'Estimado por persona',
+    extras: 'Extras',
+    giftToggle: '🎁 Hay regalo colectivo',
+    giftSub: 'Cumple, boda, despedida...',
+    giftName: 'Nombre del regalo',
+    giftLink: 'Link al regalo',
+    giftPrice: 'Precio total (€)',
+    stripeTip: '💡 Stripe Payment Link: dashboard.stripe.com → Payment Links → Create Link',
+    bringList: '🎒 Qué llevar',
+    addItem: '+ Añadir',
+    newItem: 'Ej: vino, paraguas, DNI...',
+    createPlanBtn: 'Crear plan 🎉',
+    saving: 'Guardando...',
+    planCreated: '¡Plan creado!',
+    shareWith: 'Compártelo con tu grupo',
+    planCode: 'Código del plan',
+    shareWhatsapp: 'Compartir por WhatsApp 💬',
+    copyLink: 'Copiar link directo 🔗',
+    linkCopied: '✓ ¡Link copiado!',
+    viewResults: 'Ver resultados →',
+    yourAvailability: '¿Cuándo puedes?',
+    whatTime: '¿A qué hora te viene bien?',
+    howGetThere: '¿Cómo llegas? (opcional)',
+    how_car: '🚗 En coche',
+    how_transit: '🚇 Transporte público',
+    how_taxi: '🚕 Taxi / Uber',
+    how_walk: '🚶 Andando',
+    how_bike: '🚲 Bici / Patinete',
+    how_other: '🚀 Otro (especifica)',
+    how_otherPh: '¿Cómo llegas?',
+    confirmBtn: 'Confirmar disponibilidad →',
+    saved: '¡Guardado!',
+    savedSub: 'Tu disponibilidad está registrada.',
+    responses: 'respuesta',
+    responsesPlural: 'respuestas',
+    noResponses: 'Nadie ha respondido todavía',
+    noResponsesSub: 'Comparte el código',
+    bestOption: 'Mejor opción',
+    confirmed: 'CONFIRMADO',
+    confirmThis: '📌 Confirmar esta fecha',
+    confirming: 'Confirmando...',
+    confirmSmall: 'Confirmar',
+    perPerson: 'Por persona',
+    total: 'Total',
+    collectiveGift: '🎁 Regalo colectivo',
+    totalPrice: 'Precio total',
+    perPersonOf: 'Por persona',
+    seeGift: 'Ver el regalo ↗',
+    payStripe: '💳 Pagar mi parte con Stripe',
+    payPending: 'El organizador añadirá el link de pago',
+    forecastFor: 'Previsión para',
+    addCityForWeather: 'Añade una ciudad para ver el tiempo',
+    allDates: 'Todas las fechas',
+    needResponse: 'Necesitas al menos una respuesta',
+    destination: 'Destino',
+    howEachGoes: '¿Cómo va cada uno?',
+    noStops: 'Añade paradas para ver el transporte',
+    myPlansTitle: 'Mis planes',
+    myPlansSub: 'Planes creados o a los que te has unido.',
+    noPlans: 'Todavía no tienes planes',
+    noPlansSub: 'Crea o únete a uno para verlo aquí',
+    organizer: 'Organizer',
+    guest: 'Guest',
+    confirmedDate: '📌 Fecha confirmada',
+    notifyGroup: 'Avisar 💬',
+    tabs: { who: '👥 Quién puede', route: '📍 Ruta', extras: '🎁 Extras', weather: '🌤️ Clima', transport: '🚗 Transporte' },
+    reminder: 'Enviar recordatorio',
+    reminderSent: '✓ Recordatorio enviado',
+    selectAll: 'Seleccionar todo',
+    unselectAll: 'Deseleccionar todo',
+    timezone: 'Zona horaria del evento',
+    selectDate: 'Selecciona fechas (hasta 1 año)',
+    hour: 'Hora',
+    minute: 'Min',
+    addTime: 'Añadir hora',
+    cat: ['🍽️ Restaurante','🍸 Bar','🎉 Discoteca','☕ Café','🎭 Actividad','🏠 Casa','🍕 Informal','📍 Otro'],
+  },
+  en: {
+    appTagline: 'Plans without chaos.',
+    appSub: 'Dates, times, route, budget, gift, transport and weather — all in one code.',
+    createPlan: 'Create a plan →',
+    myPlans: '👤 My plans',
+    orJoin: 'or join',
+    codePlaceholder: 'Plan code',
+    go: 'Go',
+    codeNotFound: 'Code not found. Did you type it correctly?',
+    howItWorks: 'How it works',
+    step1: 'Create a plan with possible dates and times',
+    step2: 'Share the code or link via WhatsApp',
+    step3: 'Everyone marks when they can',
+    step4: 'Confirm the date and notify the group',
+    back: '← Back',
+    continue: 'Continue →',
+    basics: 'The basics',
+    planName: 'Plan name',
+    planNamePh: 'Birthday, dinner, weekend trip...',
+    description: 'Description (optional)',
+    descPh: 'Details, dress code...',
+    yourName: 'Your name',
+    yourNamePh: "What's your name?",
+    yourEmail: 'Your email (for notifications)',
+    emailPh: 'you@email.com',
+    datesAndTimes: 'Dates & times',
+    datesAndTimesSub: 'Select possible dates and times.',
+    possibleTimes: 'Possible times',
+    routeAndBudget: 'Route & budget',
+    routeSub: 'Add stops in order.',
+    city: 'City (for weather)',
+    cityPh: 'London, New York...',
+    stop: 'Stop',
+    placeName: 'Place name',
+    address: 'Address',
+    costPer: '€ per person',
+    bookingLink: 'Booking/website link',
+    stripeLink: 'Stripe payment link (optional)',
+    addStop: '+ Add stop',
+    estimatedPer: 'Estimated per person',
+    extras: 'Extras',
+    giftToggle: '🎁 There is a collective gift',
+    giftSub: 'Birthday, wedding, farewell...',
+    giftName: 'Gift name',
+    giftLink: 'Gift link',
+    giftPrice: 'Total price (€)',
+    stripeTip: '💡 Stripe Payment Link: dashboard.stripe.com → Payment Links → Create Link',
+    bringList: '🎒 What to bring',
+    addItem: '+ Add',
+    newItem: 'e.g. wine, umbrella, ID...',
+    createPlanBtn: 'Create plan 🎉',
+    saving: 'Saving...',
+    planCreated: 'Plan created!',
+    shareWith: 'Share it with your group',
+    planCode: 'Plan code',
+    shareWhatsapp: 'Share on WhatsApp 💬',
+    copyLink: 'Copy direct link 🔗',
+    linkCopied: '✓ Link copied!',
+    viewResults: 'View results →',
+    yourAvailability: 'When can you make it?',
+    whatTime: 'What time works for you?',
+    howGetThere: 'How are you getting there? (optional)',
+    how_car: '🚗 By car',
+    how_transit: '🚇 Public transport',
+    how_taxi: '🚕 Taxi / Uber',
+    how_walk: '🚶 Walking',
+    how_bike: '🚲 Bike / Scooter',
+    how_other: '🚀 Other (specify)',
+    how_otherPh: 'How are you getting there?',
+    confirmBtn: 'Confirm availability →',
+    saved: 'Saved!',
+    savedSub: 'Your availability has been recorded.',
+    responses: 'response',
+    responsesPlural: 'responses',
+    noResponses: 'Nobody has responded yet',
+    noResponsesSub: 'Share the code',
+    bestOption: 'Best option',
+    confirmed: 'CONFIRMED',
+    confirmThis: '📌 Confirm this date',
+    confirming: 'Confirming...',
+    confirmSmall: 'Confirm',
+    perPerson: 'Per person',
+    total: 'Total',
+    collectiveGift: '🎁 Collective gift',
+    totalPrice: 'Total price',
+    perPersonOf: 'Per person',
+    seeGift: 'See gift ↗',
+    payStripe: '💳 Pay my share with Stripe',
+    payPending: 'The organiser will add the payment link soon',
+    forecastFor: 'Forecast for',
+    addCityForWeather: 'Add a city to see the weather',
+    allDates: 'All dates',
+    needResponse: 'You need at least one response',
+    destination: 'Destination',
+    howEachGoes: "How is everyone getting there?",
+    noStops: 'Add stops to see transport options',
+    myPlansTitle: 'My plans',
+    myPlansSub: 'Plans you created or joined.',
+    noPlans: 'No plans yet',
+    noPlansSub: 'Create or join one to see it here',
+    organizer: 'Organizer',
+    guest: 'Guest',
+    confirmedDate: '📌 Confirmed date',
+    notifyGroup: 'Notify 💬',
+    tabs: { who: '👥 Who can', route: '📍 Route', extras: '🎁 Extras', weather: '🌤️ Weather', transport: '🚗 Transport' },
+    reminder: 'Send reminder',
+    reminderSent: '✓ Reminder sent',
+    selectAll: 'Select all',
+    unselectAll: 'Deselect all',
+    timezone: 'Event timezone',
+    selectDate: 'Select dates (up to 1 year)',
+    hour: 'Hour',
+    minute: 'Min',
+    addTime: 'Add time',
+    cat: ['🍽️ Restaurant','🍸 Bar','🎉 Club','☕ Café','🎭 Activity','🏠 Home','🍕 Casual','📍 Other'],
+  }
 };
 
-// ── UI ────────────────────────────────────────────
-const Btn=({children,onClick,v='primary',disabled,full,sm,style={},c})=>{
-  const col=c||{A:'#CDFF6C',CARD:'#141414',T:'#F0EBE1',BD:'#262626'};
-  return<button onClick={onClick} disabled={disabled} style={{padding:sm?'8px 16px':'13px 22px',borderRadius:'12px',border:'none',cursor:disabled?'not-allowed':'pointer',fontSize:sm?'13px':'15px',fontWeight:'600',fontFamily:'inherit',opacity:disabled?.3:1,width:full?'100%':'auto',transition:'opacity .15s',...(v==='primary'?{background:col.A,color:'#0A0A0A'}:v==='wa'?{background:'#25D366',color:'#fff'}:v==='stripe'?{background:'#635BFF',color:'#fff'}:{background:col.CARD,color:col.T,border:`1px solid ${col.BD}`}),...style}}>{children}</button>;
+const TIMEZONES = [
+  { label: 'Madrid / Barcelona (CET)', tz: 'Europe/Madrid' },
+  { label: 'London (GMT/BST)', tz: 'Europe/London' },
+  { label: 'Paris / Berlin (CET)', tz: 'Europe/Paris' },
+  { label: 'New York (ET)', tz: 'America/New_York' },
+  { label: 'Los Angeles (PT)', tz: 'America/Los_Angeles' },
+  { label: 'Mexico City (CST)', tz: 'America/Mexico_City' },
+  { label: 'Buenos Aires (ART)', tz: 'America/Argentina/Buenos_Aires' },
+  { label: 'Dubai (GST)', tz: 'Asia/Dubai' },
+  { label: 'Tokyo (JST)', tz: 'Asia/Tokyo' },
+];
+
+const WX = {0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',51:'🌦️',61:'🌧️',63:'🌧️',80:'🌧️',95:'⛈️'};
+const WX_DESC = {
+  es: {0:'Despejado',1:'Casi despejado',2:'Parcialmente nublado',3:'Nublado',45:'Niebla',51:'Llovizna',61:'Lluvia ligera',63:'Lluvia',80:'Chubascos',95:'Tormenta'},
+  en: {0:'Clear',1:'Mainly clear',2:'Partly cloudy',3:'Overcast',45:'Fog',51:'Light drizzle',61:'Light rain',63:'Rain',80:'Showers',95:'Thunderstorm'},
 };
-const Inp=({value,onChange,placeholder,type='text',mono,c})=>{const col=c||{CARD:'#141414',BD:'#262626',T:'#F0EBE1'};return<input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type} style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'10px',padding:'12px 14px',color:col.T,fontSize:mono?'20px':'14px',fontFamily:mono?'monospace':'inherit',outline:'none',width:'100%',letterSpacing:mono?'.15em':'normal',fontWeight:mono?'800':'400',boxSizing:'border-box'}}/>;};
-const Txa=({value,onChange,placeholder,rows=3,c})=>{const col=c||{CARD:'#141414',BD:'#262626',T:'#F0EBE1'};return<textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows} style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'10px',padding:'12px 14px',color:col.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',resize:'vertical',boxSizing:'border-box',lineHeight:1.6}}/>;};
-const Lbl=({children,c})=>{const col=c||{M:'#555'};return<div style={{fontSize:'11px',color:col.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'8px'}}>{children}</div>;};
-const Divider=({c})=><div style={{height:'1px',background:(c||{BD:'#262626'}).BD,margin:'20px 0'}}/>;
-const Back=({onClick,c})=>{const col=c||{M2:'#888'};return<button onClick={onClick} style={{background:'none',border:'none',color:col.M2,cursor:'pointer',fontSize:'14px',padding:'0 0 22px',fontFamily:'inherit',display:'block'}}>← Volver</button>;};
-const Stepper=({cur,c})=>{const col=c||{A:'#CDFF6C',BD:'#262626',M:'#555'};return(<div style={{display:'flex',gap:'6px',marginBottom:'28px'}}>{['Básico','Fechas','Ruta','Extras'].map((s,i)=>(<div key={s} style={{flex:1,textAlign:'center'}}><div style={{height:'3px',borderRadius:'2px',background:i<=cur?col.A:col.BD,marginBottom:'6px'}}/><span style={{fontSize:'11px',color:i===cur?col.A:col.M,fontWeight:i===cur?'700':'400'}}>{s}</span></div>))}</div>);};
 
-// ── Clima ─────────────────────────────────────────
-function WeatherWidget({city,date,c}){
-  const col=c||{A:'#CDFF6C',M:'#555',M2:'#888'};
-  const[w,setW]=useState(null);const[loading,setL]=useState(false);
-  useEffect(()=>{if(!city||!date)return;setL(true);setW(null);(async()=>{try{const geo=await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=es`).then(r=>r.json());if(!geo.results?.length){setL(false);return;}const{latitude:lat,longitude:lon}=geo.results[0];const wd=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe/Madrid&start_date=${date}&end_date=${date}`).then(r=>r.json());if(wd.daily)setW({code:wd.daily.weathercode[0],max:Math.round(wd.daily.temperature_2m_max[0]),min:Math.round(wd.daily.temperature_2m_min[0]),rain:wd.daily.precipitation_probability_max[0]});}catch{}finally{setL(false);}})();},[city,date]);
-  if(!city||!date)return null;
-  if(loading)return<div style={{fontSize:'12px',color:col.M,padding:'12px 0'}}>Consultando el tiempo...</div>;
-  if(!w)return<div style={{fontSize:'12px',color:col.M,padding:'12px 0'}}>Ciudad no encontrada.</div>;
-  return(<div style={{background:`${col.A}0A`,border:`1px solid ${col.A}25`,borderRadius:'12px',padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><div style={{fontSize:'20px',marginBottom:'2px'}}>{WX[w.code]||'🌡️'}</div><div style={{fontSize:'12px',color:col.M2}}>Lluvia: {w.rain}%</div></div><div style={{textAlign:'right'}}><div style={{fontSize:'28px',fontWeight:'800',color:col.A}}>{w.max}°</div><div style={{fontSize:'13px',color:col.M2}}>{w.min}° mín</div></div></div>);
-}
+// ══════════════════════════════════════════
+// THEME & COLORS
+// ══════════════════════════════════════════
+const getSysTheme = () => window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+const applyTheme = t => { document.body.className = t; localStorage.setItem('q_theme', t); };
+const COLORS = t => t === 'dark'
+  ? { A:'#CDFF6C', BG:'#0A0A0A', CARD:'#141414', CARD2:'#1C1C1C', BD:'#2A2A2A', T:'#F0EBE1', M:'#555', M2:'#777' }
+  : { A:'#4A8800', BG:'#F5F4F1', CARD:'#FFFFFF', CARD2:'#EEECE8', BD:'#DDDAD3', T:'#1A1A1A', M:'#999', M2:'#666' };
 
-// ── Home ──────────────────────────────────────────
-function HomeScreen({onCreate,onJoin,onProfile,theme,toggleTheme,c}){
-  const[code,setCode]=useState('');const[err,setErr]=useState('');const[loading,setL]=useState(false);
-  const go=async()=>{setErr('');setL(true);const ok=await onJoin(code.trim().toUpperCase());setL(false);if(!ok)setErr('Código no encontrado.');};
-  return(<div style={{padding:'52px 24px 40px',maxWidth:'420px',margin:'0 auto'}}>
-    <div style={{marginBottom:'52px'}}>
-      <span style={{fontSize:'11px',fontWeight:'700',padding:'3px 10px',borderRadius:'20px',background:`${c.A}18`,color:c.A,border:`1px solid ${c.A}35`}}>QUEDA · Planes sin caos</span>
-      <h1 style={{fontFamily:"'Syne',serif",fontSize:'48px',fontWeight:'800',color:c.T,margin:'20px 0 16px',lineHeight:1}}>Planes sin<br/><span style={{color:c.A}}>caos.</span></h1>
-      <p style={{color:c.M2,fontSize:'15px',lineHeight:1.7}}>Fechas, horarios, ruta, presupuesto, regalo, transporte y clima — todo en un código.</p>
+// ══════════════════════════════════════════
+// LOCAL STORAGE HELPERS
+// ══════════════════════════════════════════
+const ls = {
+  get: (k, def) => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
+  set: (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+};
+const getMyPlans = () => ls.get('q_plans', []);
+const addMyPlan = (id, name, role) => {
+  const p = getMyPlans().filter(x => x.id !== id);
+  ls.set('q_plans', [{ id, name, role, at: new Date().toISOString() }, ...p].slice(0, 30));
+};
+
+// ══════════════════════════════════════════
+// SUPABASE
+// ══════════════════════════════════════════
+const savePlan = async p => { await db.from('plans').upsert({ id: p.id, data: p }); };
+const loadPlan = async id => { try { const { data } = await db.from('plans').select('data').eq('id', id).single(); return data?.data || null; } catch { return null; } };
+const updatePlan = async p => { await db.from('plans').update({ data: p }).eq('id', p.id); };
+const saveResp = async (planId, name, resp) => {
+  try {
+    const { data: ex } = await db.from('responses').select('id').eq('plan_id', planId).eq('name', name).single();
+    if (ex) { await db.from('responses').update({ data: resp }).eq('id', ex.id); }
+    else { await db.from('responses').insert({ plan_id: planId, name, data: resp }); }
+  } catch(e) { console.error('saveResp:', e); }
+};
+const loadResps = async id => { try { const { data } = await db.from('responses').select('data').eq('plan_id', id); return (data || []).map(r => r.data); } catch { return []; } };
+
+// ══════════════════════════════════════════
+// EMAIL
+// ══════════════════════════════════════════
+const sendEmail = async (plan, who, dates) => {
+  if (!EMAIL_ON || !plan.organizerEmail) return;
+  try {
+    await emailjs.send(EJS_SVC, EJS_TPL, {
+      to_email: plan.organizerEmail, to_name: plan.organizer,
+      plan_name: plan.name, responder_name: who,
+      dates_available: dates.join(', ') || 'None',
+      plan_code: plan.id,
+      plan_url: location.href.split('?')[0] + '?code=' + plan.id,
+    }, EJS_KEY);
+  } catch(e) { console.log('email:', e); }
+};
+
+// ══════════════════════════════════════════
+// DATE/TIME UTILS
+// ══════════════════════════════════════════
+const genId = () => Math.random().toString(36).substring(2, 7).toUpperCase();
+const toISO = d => d.toISOString().split('T')[0];
+const today = () => { const d = new Date(); d.setHours(0,0,0,0); return d; };
+const addDays = (d, n) => { const r = new Date(d); r.setDate(r.getDate() + n); return r; };
+const fmtDate = (iso, lang) => {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', { weekday: 'long', day: 'numeric', month: 'long' });
+};
+const fmtShort = (iso, lang) => {
+  const d = new Date(iso + 'T12:00:00');
+  return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
+};
+const fmtMonthYear = (year, month, lang) => {
+  const d = new Date(year, month, 1);
+  return d.toLocaleDateString(lang === 'en' ? 'en-GB' : 'es-ES', { month: 'long', year: 'numeric' });
+};
+
+// ══════════════════════════════════════════
+// UI BASE COMPONENTS
+// ══════════════════════════════════════════
+const Btn = ({ children, onClick, v='primary', disabled, full, sm, style={}, c }) => {
+  const col = c || COLORS('dark');
+  const base = { padding: sm?'8px 16px':'13px 22px', borderRadius:'12px', border:'none', cursor: disabled?'not-allowed':'pointer', fontSize: sm?'13px':'15px', fontWeight:'600', fontFamily:'inherit', opacity: disabled?.3:1, width: full?'100%':'auto', transition:'opacity .15s' };
+  const vs = { primary:{background:col.A,color:'#0A0A0A'}, secondary:{background:col.CARD,color:col.T,border:`1px solid ${col.BD}`}, wa:{background:'#25D366',color:'#fff'}, stripe:{background:'#635BFF',color:'#fff'}, danger:{background:'#ff4444',color:'#fff'} };
+  return <button onClick={onClick} disabled={disabled} style={{...base,...(vs[v]||vs.secondary),...style}}>{children}</button>;
+};
+
+const Inp = ({ value, onChange, placeholder, type='text', mono, c }) => {
+  const col = c || COLORS('dark');
+  return <input value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} type={type}
+    style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'10px',padding:'12px 14px',color:col.T,fontSize:mono?'22px':'14px',fontFamily:mono?'monospace':'inherit',outline:'none',width:'100%',letterSpacing:mono?'.18em':'normal',fontWeight:mono?'800':'400',boxSizing:'border-box'}}/>;
+};
+
+const Txa = ({ value, onChange, placeholder, rows=3, c }) => {
+  const col = c || COLORS('dark');
+  return <textarea value={value} onChange={e=>onChange(e.target.value)} placeholder={placeholder} rows={rows}
+    style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'10px',padding:'12px 14px',color:col.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',resize:'vertical',boxSizing:'border-box',lineHeight:1.6}}/>;
+};
+
+const Lbl = ({ children, c }) => {
+  const col = c || COLORS('dark');
+  return <div style={{fontSize:'11px',color:col.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'8px'}}>{children}</div>;
+};
+
+const HR = ({ c }) => <div style={{height:'1px',background:(c||COLORS('dark')).BD,margin:'20px 0'}}/>;
+
+const Back = ({ onClick, c, label='← Volver' }) => {
+  const col = c || COLORS('dark');
+  return <button onClick={onClick} style={{background:'none',border:'none',color:col.M2,cursor:'pointer',fontSize:'14px',padding:'0 0 22px',fontFamily:'inherit',display:'block'}}>{label}</button>;
+};
+
+const Badge = ({ children, color }) => (
+  <span style={{fontSize:'11px',fontWeight:'700',padding:'3px 10px',borderRadius:'20px',background:`${color}18`,color,border:`1px solid ${color}35`}}>{children}</span>
+);
+
+const Card = ({ children, style={}, c, accent }) => {
+  const col = c || COLORS('dark');
+  return <div style={{background:col.CARD,border:`1px solid ${accent?col.A+'50':col.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'10px',...style}}>{children}</div>;
+};
+
+const Stepper = ({ cur, c, labels=['Básico','Fechas','Ruta','Extras'] }) => {
+  const col = c || COLORS('dark');
+  return (
+    <div style={{display:'flex',gap:'6px',marginBottom:'28px'}}>
+      {labels.map((s,i) => (
+        <div key={s} style={{flex:1,textAlign:'center'}}>
+          <div style={{height:'3px',borderRadius:'2px',background:i<=cur?col.A:col.BD,marginBottom:'6px',transition:'background .3s'}}/>
+          <span style={{fontSize:'11px',color:i===cur?col.A:col.M,fontWeight:i===cur?'700':'400'}}>{s}</span>
+        </div>
+      ))}
     </div>
-    <Btn onClick={onCreate} full style={{padding:'16px',fontSize:'16px',marginBottom:'10px'}} c={c}>Crear un plan →</Btn>
-    <Btn onClick={onProfile} v="secondary" full style={{padding:'13px',fontSize:'14px',marginBottom:'16px'}} c={c}>👤 Mis planes</Btn>
-    <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'14px'}}><div style={{flex:1,height:'1px',background:c.BD}}/><span style={{color:c.M,fontSize:'11px',fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase'}}>o únete</span><div style={{flex:1,height:'1px',background:c.BD}}/></div>
-    <div style={{display:'flex',gap:'8px'}}><Inp value={code} onChange={v=>setCode(v.toUpperCase())} placeholder="Código del plan" mono c={c}/><Btn onClick={go} v="secondary" disabled={code.length<4||loading} style={{flexShrink:0}} c={c}>{loading?'..':'Ir'}</Btn></div>
-    {err&&<div style={{color:'#ff6b6b',fontSize:'13px',marginTop:'10px'}}>{err}</div>}
-    <div style={{marginTop:'48px',padding:'20px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'16px'}}>
-      <div style={{fontSize:'11px',color:c.M,fontWeight:'700',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'14px'}}>Cómo funciona</div>
-      {[['1.','Crea un plan con fechas y horarios'],['2.','Comparte el código o link por WhatsApp'],['3.','Cada uno marca cuándo puede'],['4.','Confirma la fecha y avisa al grupo']].map(([n,tx])=>(<div key={n} style={{display:'flex',gap:'12px',marginBottom:'10px',fontSize:'14px'}}><span style={{color:c.A,fontWeight:'700',minWidth:'18px'}}>{n}</span><span style={{color:c.T}}>{tx}</span></div>))}
-    </div>
-  </div>);
-}
+  );
+};
 
-// ── Perfil ────────────────────────────────────────
-function ProfileScreen({onBack,onOpen,c}){
-  const plans=getMyPlans();
-  return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
-    <Back onClick={onBack} c={c}/>
-    <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'6px'}}>Mis planes</h2>
-    <p style={{color:c.M2,fontSize:'13px',marginBottom:'22px'}}>Planes creados o a los que te has unido en este dispositivo.</p>
-    {plans.length===0?(<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'32px',textAlign:'center'}}><div style={{fontSize:'36px',marginBottom:'12px'}}>📋</div><div style={{color:c.T,fontWeight:'500',marginBottom:'6px'}}>Todavía no tienes planes</div><div style={{color:c.M2,fontSize:'13px'}}>Crea o únete a uno para verlo aquí</div></div>
-    ):(plans.map(p=>(<div key={p.id} onClick={()=>onOpen(p.id)} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'10px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}><div><div style={{fontSize:'15px',color:c.T,fontWeight:'500',marginBottom:'4px'}}>{p.name}</div><div style={{fontSize:'12px',color:c.M2}}><span style={{color:c.A,fontWeight:'700',letterSpacing:'.08em'}}>{p.id}</span>{' · '}{p.role==='organizer'?'Organizador':'Invitado'}</div></div><span style={{color:c.M2,fontSize:'18px'}}>→</span></div>)))}
-  </div>);
-}
+// ══════════════════════════════════════════
+// CALENDAR PICKER
+// ══════════════════════════════════════════
+function CalendarPicker({ selected, onChange, c, lang }) {
+  const col = c || COLORS('dark');
+  const now = today();
+  const maxDate = addDays(now, 365);
+  const [viewYear, setViewYear] = useState(now.getFullYear());
+  const [viewMonth, setViewMonth] = useState(now.getMonth());
 
-// ── Create ────────────────────────────────────────
-function CreateScreen({onBack,onCreated,c}){
-  const days=getNextDays(21);
-  const[step,setStep]=useState(0);
-  const[name,setName]=useState('');const[desc,setDesc]=useState('');const[org,setOrg]=useState('');const[orgEmail,setOrgEmail]=useState('');
-  const[selD,setSelD]=useState([]);const[selH,setSelH]=useState({});
-  const[stops,setStops]=useState([{id:1,name:'',cat:CATS[0],address:'',cost:'',link:'',stripeLink:''}]);
-  const[city,setCity]=useState('');
-  const[gift,setGift]=useState({enabled:false,name:'',link:'',price:'',stripeLink:''});
-  const[bring,setBring]=useState(['']);
-  const[saving,setSaving]=useState(false);
+  const getDaysInMonth = (y, m) => new Date(y, m+1, 0).getDate();
+  const getFirstDay = (y, m) => new Date(y, m, 1).getDay();
 
-  const togD=d=>setSelD(p=>p.includes(d)?p.filter(x=>x!==d):[...p,d]);
-  const togH=(d,h)=>setSelH(p=>({...p,[d]:(p[d]||[]).includes(h)?(p[d]||[]).filter(x=>x!==h):[...(p[d]||[]),h]}));
-  const addStop=()=>setStops(p=>[...p,{id:Date.now(),name:'',cat:CATS[0],address:'',cost:'',link:'',stripeLink:''}]);
-  const upd=(id,k,v)=>setStops(p=>p.map(s=>s.id===id?{...s,[k]:v}:s));
-  const rem=id=>setStops(p=>p.filter(s=>s.id!==id));
-  const budget=stops.reduce((s,x)=>s+(parseFloat(x.cost)||0),0);
-
-  const create=async()=>{
-    setSaving(true);
-    const plan={id:genId(),name:name.trim(),desc:desc.trim(),organizer:org.trim(),organizerEmail:orgEmail.trim(),dates:[...selD].sort(),hours:selH,stops,city,gift:gift.enabled?gift:null,bring:bring.filter(Boolean),confirmedDate:null,createdAt:new Date().toISOString()};
-    await savePlan(plan);addMyPlan(plan.id,plan.name,'organizer');onCreated(plan);
+  const prevMonth = () => { if (viewMonth === 0) { setViewYear(y=>y-1); setViewMonth(11); } else setViewMonth(m=>m-1); };
+  const nextMonth = () => {
+    const next = new Date(viewYear, viewMonth+1, 1);
+    if (next <= maxDate) { if (viewMonth === 11) { setViewYear(y=>y+1); setViewMonth(0); } else setViewMonth(m=>m+1); }
   };
 
-  const iS=(v,placeholder,k,sid)=><input value={v} onChange={e=>upd(sid,k,e.target.value)} placeholder={placeholder} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'9px 12px',color:c.T,fontSize:'13px',fontFamily:'inherit',outline:'none',boxSizing:'border-box',width:'100%'}}/>;
+  const days = getDaysInMonth(viewYear, viewMonth);
+  const firstDay = (getFirstDay(viewYear, viewMonth) + 6) % 7;
+  const dayLabels = lang === 'en' ? ['M','T','W','T','F','S','S'] : ['L','M','X','J','V','S','D'];
 
-  return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
-    <Back onClick={step===0?onBack:()=>setStep(s=>s-1)} c={c}/>
-    <Stepper cur={step} c={c}/>
-
-    {step===0&&<>
-      <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'24px'}}>Lo básico</h2>
-      <div style={{marginBottom:'14px'}}><Lbl c={c}>Nombre del plan</Lbl><Inp value={name} onChange={setName} placeholder="Cumpleaños, cena, escapada..." c={c}/></div>
-      <div style={{marginBottom:'14px'}}><Lbl c={c}>Descripción (opcional)</Lbl><Txa value={desc} onChange={setDesc} placeholder="Detalles, dress code..." c={c}/></div>
-      <div style={{marginBottom:'14px'}}><Lbl c={c}>Tu nombre</Lbl><Inp value={org} onChange={setOrg} placeholder="¿Cómo te llamas?" c={c}/></div>
-      <div style={{marginBottom:'24px'}}><Lbl c={c}>Tu email (para notificaciones)</Lbl><Inp value={orgEmail} onChange={setOrgEmail} placeholder="tu@email.com" type="email" c={c}/></div>
-      <Btn onClick={()=>setStep(1)} disabled={!name.trim()||!org.trim()} full style={{padding:'15px'}} c={c}>Continuar →</Btn>
-    </>}
-
-    {step===1&&<>
-      <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'6px'}}>Fechas y horarios</h2>
-      <p style={{color:c.M2,fontSize:'13px',marginBottom:'20px'}}>Selecciona fechas y horarios posibles.</p>
-      {days.slice(0,14).map(d=>{const on=selD.includes(d);return(<div key={d} style={{marginBottom:'8px'}}>
-        <div onClick={()=>togD(d)} style={{padding:'12px 14px',borderRadius:'10px',border:`1px solid ${on?c.A:c.BD}`,background:on?`${c.A}12`:c.CARD,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:'14px',color:on?c.A:c.T,fontWeight:on?'600':'400',textTransform:'capitalize'}}>{fmtShort(d)}</span>
-          <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${on?c.A:c.BD}`,background:on?c.A:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800'}}>{on?'✓':''}</div>
-        </div>
-        {on&&<div style={{padding:'10px 14px',background:c.CARD2,borderRadius:'0 0 10px 10px',border:`1px solid ${c.BD}`,borderTop:'none'}}>
-          <div style={{fontSize:'11px',color:c.M,fontWeight:'700',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'7px'}}>Horarios posibles</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
-            {HOURS.map(h=>{const ho=(selH[d]||[]).includes(h);return<span key={h} onClick={()=>togH(d,h)} style={{fontSize:'12px',padding:'5px 11px',borderRadius:'20px',border:`1px solid ${ho?c.A:c.BD}`,background:ho?`${c.A}20`:'transparent',color:ho?c.A:c.M2,cursor:'pointer',fontWeight:ho?'700':'400'}}>{h}</span>;})}
-          </div>
-        </div>}
-      </div>);})}
-      <div style={{marginTop:'20px'}}><Btn onClick={()=>setStep(2)} disabled={selD.length<1} full style={{padding:'15px'}} c={c}>Continuar →</Btn></div>
-    </>}
-
-    {step===2&&<>
-      <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'6px'}}>Ruta y presupuesto</h2>
-      <p style={{color:c.M2,fontSize:'13px',marginBottom:'18px'}}>Añade los sitios en orden.</p>
-      <div style={{marginBottom:'14px'}}><Lbl c={c}>Ciudad (para el clima)</Lbl><Inp value={city} onChange={setCity} placeholder="Madrid, Barcelona..." c={c}/></div>
-      <Divider c={c}/>
-      {stops.map((s,i)=>(<div key={s.id} style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'10px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-            <div style={{width:'24px',height:'24px',borderRadius:'50%',background:`${c.A}25`,border:`1px solid ${c.A}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'800',color:c.A}}>{i+1}</div>
-            <span style={{fontSize:'12px',color:c.M2,fontWeight:'600',letterSpacing:'.06em',textTransform:'uppercase'}}>Parada {i+1}</span>
-          </div>
-          {stops.length>1&&<button onClick={()=>rem(s.id)} style={{background:'none',border:'none',color:c.M,cursor:'pointer',fontSize:'18px'}}>×</button>}
-        </div>
-        <select value={s.cat} onChange={e=>upd(s.id,'cat',e.target.value)} style={{background:c.CARD,border:`1px solid ${c.BD}`,color:c.T,fontSize:'13px',padding:'9px 12px',borderRadius:'8px',width:'100%',fontFamily:'inherit',marginBottom:'8px'}}>
-          {CATS.map(cat=><option key={cat} value={cat}>{cat}</option>)}
-        </select>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
-          {iS(s.name,'Nombre del lugar','name',s.id)}{iS(s.address,'Dirección','address',s.id)}
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
-          {iS(s.cost,'€ por persona','cost',s.id)}{iS(s.link,'Link reserva/web','link',s.id)}
-        </div>
-        {iS(s.stripeLink||'','Link de pago Stripe (opcional)','stripeLink',s.id)}
-      </div>))}
-      <Btn onClick={addStop} v="secondary" full sm style={{marginBottom:'14px'}} c={c}>+ Añadir parada</Btn>
-      {budget>0&&<div style={{background:`${c.A}0D`,border:`1px solid ${c.A}30`,borderRadius:'12px',padding:'14px 16px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{color:c.M2,fontSize:'14px'}}>Estimado por persona</span><span style={{color:c.A,fontSize:'22px',fontWeight:'800'}}>{budget.toFixed(0)}€</span></div>}
-      <Btn onClick={()=>setStep(3)} full style={{padding:'15px'}} c={c}>Continuar →</Btn>
-    </>}
-
-    {step===3&&<>
-      <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'6px'}}>Extras</h2>
-      <div style={{marginBottom:'22px'}}>
-        <div onClick={()=>setGift(g=>({...g,enabled:!g.enabled}))} style={{display:'flex',alignItems:'center',gap:'12px',padding:'14px 16px',background:c.CARD,border:`1px solid ${gift.enabled?c.A+'50':c.BD}`,borderRadius:'12px',cursor:'pointer',marginBottom:'10px'}}>
-          <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${gift.enabled?c.A:c.BD}`,background:gift.enabled?c.A:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800',flexShrink:0}}>{gift.enabled?'✓':''}</div>
-          <div><div style={{fontSize:'14px',color:c.T,fontWeight:'500'}}>🎁 Hay regalo colectivo</div><div style={{fontSize:'12px',color:c.M2}}>Cumple, boda, despedida...</div></div>
-        </div>
-        {gift.enabled&&<div style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'12px',padding:'14px',display:'flex',flexDirection:'column',gap:'8px'}}>
-          {[['name','Nombre del regalo'],['link','Link al regalo'],['price','Precio total (€)'],['stripeLink','Link de pago Stripe']].map(([k,ph])=><input key={k} value={gift[k]||''} onChange={e=>setGift(g=>({...g,[k]:e.target.value}))} type={k==='price'?'number':'text'} placeholder={ph} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'10px 12px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box'}}/>)}
-          <div style={{fontSize:'11px',color:c.M2,padding:'8px',background:c.CARD,borderRadius:'8px',lineHeight:1.6}}>💡 Stripe Payment Link: dashboard.stripe.com → Payment Links → Create Link</div>
-        </div>}
-      </div>
-      <div style={{marginBottom:'24px'}}>
-        <Lbl c={c}>Qué llevar</Lbl>
-        {bring.map((b,i)=>(<div key={i} style={{display:'flex',gap:'8px',marginBottom:'8px'}}>
-          <input value={b} onChange={e=>setBring(p=>p.map((x,j)=>j===i?e.target.value:x))} placeholder="Ej: vino, paraguas..." style={{flex:1,background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'10px 12px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none'}}/>
-          {bring.length>1&&<button onClick={()=>setBring(p=>p.filter((_,j)=>j!==i))} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M,cursor:'pointer',fontSize:'16px',borderRadius:'8px',width:'36px'}}>×</button>}
-        </div>))}
-        <Btn onClick={()=>setBring(p=>[...p,''])} v="secondary" sm c={c}>+ Añadir</Btn>
-      </div>
-      <Btn onClick={create} disabled={saving} full style={{padding:'16px',fontSize:'16px'}} c={c}>{saving?'Guardando...':'Crear plan 🎉'}</Btn>
-    </>}
-  </div>);
-}
-
-// ── Share ─────────────────────────────────────────
-function ShareScreen({plan,onViewResults,onBack,c}){
-  const[copied,setCopied]=useState(false);
-  const url=location.href.split('?')[0]+'?code='+plan.id;
-  const copy=()=>{navigator.clipboard.writeText(url).catch(()=>{});setCopied(true);setTimeout(()=>setCopied(false),2000);};
-  const wa=()=>{const msg=`¡Hola! Te invito al plan *${plan.name}*.\n\nIndica cuándo puedes aquí:\n${url}\n\nO entra con el código *${plan.id}*`;window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');};
-  return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
-    <Back onClick={onBack} c={c}/>
-    <div style={{textAlign:'center',marginBottom:'28px'}}><div style={{fontSize:'52px',marginBottom:'14px'}}>🎉</div><h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:c.T,marginBottom:'8px'}}>¡Plan creado!</h2><p style={{color:c.M2,fontSize:'14px'}}>Compártelo con tu grupo</p></div>
-    <div style={{background:c.CARD,border:`1px solid ${c.A}40`,borderRadius:'14px',padding:'20px',textAlign:'center',marginBottom:'14px'}}>
-      <div style={{fontSize:'11px',color:c.M,fontWeight:'700',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:'14px'}}>Código del plan</div>
-      <div style={{fontFamily:'monospace',fontSize:'60px',fontWeight:'900',color:c.A,letterSpacing:'.2em',lineHeight:1,marginBottom:'14px'}}>{plan.id}</div>
-      <div style={{fontSize:'15px',color:c.T,fontWeight:'600',marginBottom:'4px'}}>{plan.name}</div>
-      <div style={{fontSize:'13px',color:c.M2}}>Por {plan.organizer} · {plan.dates.length} fecha{plan.dates.length>1?'s':''}</div>
-    </div>
-    <Btn onClick={wa} v="wa" full style={{marginBottom:'10px',padding:'15px',fontSize:'15px'}} c={c}>Compartir por WhatsApp 💬</Btn>
-    <Btn onClick={copy} full style={{marginBottom:'10px',padding:'14px'}} c={c}>{copied?'✓ ¡Link copiado!':'Copiar link directo 🔗'}</Btn>
-    <Btn onClick={onViewResults} v="secondary" full style={{padding:'14px'}} c={c}>Ver resultados →</Btn>
-  </div>);
-}
-
-// ── Respond ───────────────────────────────────────
-function RespondScreen({plan,onBack,onDone,c}){
-  const[name,setName]=useState('');const[avail,setAvail]=useState({});const[hourPref,setHourPref]=useState({});const[how,setHow]=useState('');const[saving,setSaving]=useState(false);const[done,setDone]=useState(false);
-  const togD=d=>setAvail(p=>({...p,[d]:!p[d]}));
-  const togH=(d,h)=>setHourPref(p=>({...p,[d]:(p[d]||[]).includes(h)?(p[d]||[]).filter(x=>x!==h):[...(p[d]||[]),h]}));
-  const submit=async()=>{
-    if(!name.trim())return;setSaving(true);
-    const resp={name:name.trim(),avail,hourPref,how,at:new Date().toISOString()};
-    await saveResp(plan.id,name.trim(),resp);
-    addMyPlan(plan.id,plan.name,'invited');
-    await sendEmail(plan,name.trim(),plan.dates.filter(d=>avail[d]).map(d=>fmtShort(d)));
-    setSaving(false);setDone(true);setTimeout(onDone,1800);
+  const toggleDay = iso => {
+    onChange(selected.includes(iso) ? selected.filter(d=>d!==iso) : [...selected, iso]);
   };
-  const budget=plan.stops.reduce((s,p2)=>s+(parseFloat(p2.cost)||0),0);
-  const giftPer=plan.gift?.price?parseFloat(plan.gift.price):0;
-  if(done)return(<div style={{padding:'80px 24px',maxWidth:'420px',margin:'0 auto',textAlign:'center'}}><div style={{fontSize:'64px',marginBottom:'20px'}}>✅</div><h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:c.A,marginBottom:'10px'}}>¡Guardado!</h2><p style={{color:c.M2}}>Tu disponibilidad está registrada.</p></div>);
-  return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
-    <Back onClick={onBack} c={c}/>
-    {plan.confirmedDate&&<div style={{background:`${c.A}15`,border:`1px solid ${c.A}50`,borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',gap:'10px',alignItems:'center'}}><div style={{fontSize:'20px'}}>📌</div><div><div style={{fontSize:'11px',color:c.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>Fecha confirmada</div><div style={{fontSize:'15px',color:c.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate)}</div></div></div>}
-    <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'4px'}}>{plan.name}</h2>
-    <div style={{fontSize:'13px',color:c.M2,marginBottom:'8px'}}>Organizado por {plan.organizer}</div>
-    {plan.desc&&<p style={{fontSize:'14px',color:c.T,lineHeight:1.7,marginBottom:'16px',padding:'12px 14px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px'}}>{plan.desc}</p>}
-    {budget>0&&<div style={{background:`${c.A}0D`,border:`1px solid ${c.A}30`,borderRadius:'10px',padding:'12px 16px',marginBottom:'16px',display:'flex',justifyContent:'space-between'}}><span style={{color:c.M2,fontSize:'13px'}}>Presupuesto estimado</span><span style={{color:c.A,fontWeight:'700'}}>{(budget+giftPer).toFixed(0)}€/persona</span></div>}
-    <Divider c={c}/>
-    <div style={{marginBottom:'16px'}}><Lbl c={c}>Tu nombre</Lbl><Inp value={name} onChange={setName} placeholder="¿Cómo te llamas?" c={c}/></div>
-    <div style={{marginBottom:'20px'}}>
-      <Lbl c={c}>¿Cuándo puedes?</Lbl>
-      {plan.dates.map(d=>{const on=avail[d];const hs=plan.hours?.[d]||[];return(<div key={d} style={{marginBottom:'8px'}}>
-        <div onClick={()=>togD(d)} style={{padding:'12px 14px',borderRadius:'10px',border:`1px solid ${on?c.A:c.BD}`,background:on?`${c.A}12`:c.CARD,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-          <span style={{fontSize:'14px',color:on?c.A:c.T,fontWeight:on?'600':'400',textTransform:'capitalize'}}>{fmtDate(d)}</span>
-          <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${on?c.A:c.BD}`,background:on?c.A:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800'}}>{on?'✓':''}</div>
-        </div>
-        {on&&hs.length>0&&<div style={{padding:'10px 14px',background:c.CARD2,borderRadius:'0 0 10px 10px',border:`1px solid ${c.BD}`,borderTop:'none'}}>
-          <div style={{fontSize:'11px',color:c.M,fontWeight:'700',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'7px'}}>¿A qué hora?</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'5px'}}>{hs.map(h=>{const o=(hourPref[d]||[]).includes(h);return<span key={h} onClick={()=>togH(d,h)} style={{fontSize:'12px',padding:'4px 11px',borderRadius:'20px',border:`1px solid ${o?c.A:c.BD}`,background:o?`${c.A}20`:'transparent',color:o?c.A:c.M2,cursor:'pointer',fontWeight:o?'700':'400'}}>{h}</span>;})}</div>
-        </div>}
-      </div>);})}
-    </div>
-    <div style={{marginBottom:'20px'}}>
-      <Lbl c={c}>¿Cómo llegas? (opcional)</Lbl>
-      <select value={how} onChange={e=>setHow(e.target.value)} style={{background:c.CARD,border:`1px solid ${c.BD}`,color:how?c.T:c.M,fontSize:'14px',padding:'12px 14px',borderRadius:'10px',width:'100%',fontFamily:'inherit'}}>
-        <option value=''>Selecciona...</option>
-        <option value='coche'>🚗 En coche</option><option value='moto'>🏍 En moto</option><option value='transporte'>🚇 Transporte público</option><option value='uber'>🚕 Taxi/Uber</option><option value='andando'>🚶 Andando</option><option value='bici'>🚲 Bici/Patinete</option>
-      </select>
-    </div>
-    <Btn onClick={submit} disabled={!name.trim()||saving} full style={{padding:'15px',fontSize:'15px'}} c={c}>{saving?'Guardando...':'Confirmar disponibilidad →'}</Btn>
-  </div>);
-}
 
-// ── Results ───────────────────────────────────────
-function ResultsScreen({plan:ip,onBack,isOrg,c}){
-  const[plan,setPlan]=useState(ip);
-  const[tab,setTab]=useState('disponibilidad');const[responses,setRs]=useState([]);const[loading,setL]=useState(true);const[confirming,setCon]=useState(false);
-  const refresh=useCallback(async()=>{setL(true);setRs(await loadResps(plan.id));setL(false);},[plan.id]);
-  useEffect(()=>{refresh();},[refresh]);
-  const total=responses.length;
-  const counts=plan.dates.reduce((acc,d)=>{acc[d]=responses.filter(r=>r.avail[d]).length;return acc;},{});
-  const mx=Math.max(...Object.values(counts),1);
-  const best=total>0?plan.dates.reduce((b,d)=>counts[d]>counts[b]?d:b,plan.dates[0]):null;
-  const budget=plan.stops.reduce((s,p2)=>s+(parseFloat(p2.cost)||0),0);
-  const giftPer=plan.gift?.price?parseFloat(plan.gift.price):0;
-  const fs=plan.stops.find(s=>s.address||s.name);
-  const TABS=['disponibilidad','ruta','extras','clima','transporte'];
-  const TLABELS={disponibilidad:'👥 Quién puede',ruta:'📍 Ruta',extras:'🎁 Extras',clima:'🌤️ Clima',transporte:'🚗 Transporte'};
-
-  const confirmDate=async d=>{setCon(true);const up={...plan,confirmedDate:d};await updatePlan(up);setPlan(up);setCon(false);};
-  const waConfirm=()=>{if(!plan.confirmedDate)return;const url=location.href.split('?')[0]+'?code='+plan.id;const msg=`📌 *${plan.name}* — ¡fecha confirmada!\n\n🗓️ ${fmtDate(plan.confirmedDate)}\n\n${url}`;window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');};
-
-  return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
-    <Back onClick={onBack} c={c}/>
-    <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'4px'}}>
-      <h2 style={{fontFamily:"'Syne',serif",fontSize:'24px',fontWeight:'800',color:c.T,margin:0}}>{plan.name}</h2>
-      <button onClick={refresh} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M2,cursor:'pointer',fontSize:'12px',padding:'6px 10px',borderRadius:'8px',fontFamily:'inherit'}}>↻</button>
-    </div>
-    <div style={{fontSize:'13px',color:c.M2,marginBottom:'12px'}}>{total} respuesta{total!==1?'s':''} · <span style={{color:c.A,fontWeight:'700',letterSpacing:'.1em'}}>{plan.id}</span></div>
-
-    {plan.confirmedDate&&(<div style={{background:`${c.A}15`,border:`1px solid ${c.A}50`,borderRadius:'12px',padding:'14px 16px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
-      <div><div style={{fontSize:'11px',color:c.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>📌 Fecha confirmada</div><div style={{fontSize:'15px',color:c.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate)}</div></div>
-      {isOrg&&<button onClick={waConfirm} style={{background:'#25D366',border:'none',borderRadius:'10px',padding:'8px 12px',color:'#fff',fontSize:'12px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>Avisar 💬</button>}
-    </div>)}
-
-    <div style={{display:'flex',gap:'6px',overflowX:'auto',paddingBottom:'4px',marginBottom:'20px'}}>
-      {TABS.map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'7px 12px',borderRadius:'20px',border:`1px solid ${tab===t?c.A+'60':c.BD}`,background:tab===t?`${c.A}15`:c.CARD,color:tab===t?c.A:c.M2,fontSize:'12px',fontWeight:tab===t?'700':'400',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>{TLABELS[t]}</button>)}
-    </div>
-
-    {loading&&<div style={{textAlign:'center',color:c.M,padding:'48px'}}>Cargando...</div>}
-
-    {!loading&&tab==='disponibilidad'&&(total===0?
-      (<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'32px',textAlign:'center'}}><div style={{fontSize:'36px',marginBottom:'12px'}}>⏳</div><div style={{color:c.T,fontWeight:'500',marginBottom:'6px'}}>Nadie ha respondido todavía</div><div style={{color:c.M2,fontSize:'13px'}}>Comparte el código <span style={{color:c.A,fontWeight:'700'}}>{plan.id}</span></div></div>)
-    :(<>
-      {best&&counts[best]>0&&(<div style={{background:`${c.A}12`,border:`1px solid ${c.A}35`,borderRadius:'14px',padding:'16px',marginBottom:'18px'}}>
-        <div style={{display:'flex',gap:'14px',alignItems:'center',marginBottom:isOrg&&!plan.confirmedDate?'14px':'0'}}>
-          <div style={{fontSize:'28px'}}>⭐</div>
-          <div>
-            <div style={{fontSize:'11px',color:c.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>Mejor opción</div>
-            <div style={{fontSize:'15px',color:c.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(best)}</div>
-            {plan.hours?.[best]?.length>0&&<div style={{fontSize:'12px',color:c.M2}}>Horas: {plan.hours[best].join(', ')}</div>}
-            <div style={{fontSize:'13px',color:c.M2}}>{counts[best]}/{total} pueden</div>
-          </div>
-        </div>
-        {isOrg&&!plan.confirmedDate&&<Btn onClick={()=>confirmDate(best)} disabled={confirming} full sm c={c}>{confirming?'Confirmando...':'📌 Confirmar esta fecha'}</Btn>}
-      </div>)}
-      <div style={{marginBottom:'20px'}}>{plan.dates.map(d=>{const n=counts[d];const pct=(n/mx)*100;const isBest=d===best&&n>0;const isConf=d===plan.confirmedDate;return(<div key={d} style={{marginBottom:'12px'}}>
-        <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'5px'}}>
-          <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
-            <span style={{fontSize:'13px',color:isConf||isBest?c.A:c.T,fontWeight:isConf||isBest?'700':'400',textTransform:'capitalize'}}>{fmtShort(d)}</span>
-            {isConf&&<span style={{fontSize:'10px',background:c.A,color:'#0A0A0A',padding:'1px 7px',borderRadius:'20px',fontWeight:'800'}}>CONFIRMADO</span>}
-            {!isConf&&isBest&&<span style={{fontSize:'12px'}}>⭐</span>}
-          </div>
-          <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
-            <span style={{fontSize:'13px',color:isBest?c.A:c.M2,fontWeight:isBest?'700':'400'}}>{n}/{total}</span>
-            {isOrg&&!plan.confirmedDate&&d!==best&&n>0&&<button onClick={()=>confirmDate(d)} style={{background:'none',border:'none',color:c.M2,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',textDecoration:'underline'}}>Confirmar</button>}
-          </div>
-        </div>
-        <div style={{height:'7px',background:c.BD,borderRadius:'4px',overflow:'hidden'}}><div style={{height:'100%',width:`${pct}%`,background:isConf||isBest?c.A:c.CARD2,borderRadius:'4px',transition:'width .5s'}}/></div>
-      </div>);})}</div>
-      <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px'}}>
-        <Lbl c={c}>Detalle por persona</Lbl>
-        {responses.map((r,i)=>(<div key={i} style={{paddingBottom:'12px',marginBottom:'12px',borderBottom:i<responses.length-1?`1px solid ${c.BD}`:'none'}}>
-          <div style={{fontSize:'14px',color:c.T,fontWeight:'600',marginBottom:'6px'}}>{r.name} {r.how&&<span style={{fontSize:'12px',color:c.M2,fontWeight:'400'}}>· {r.how==='coche'?'🚗':r.how==='transporte'?'🚇':r.how==='uber'?'🚕':r.how==='andando'?'🚶':'🚲'}</span>}</div>
-          <div style={{display:'flex',flexWrap:'wrap',gap:'5px'}}>{plan.dates.map(d=><span key={d} style={{fontSize:'11px',padding:'3px 9px',borderRadius:'20px',background:r.avail[d]?`${c.A}20`:c.CARD2,color:r.avail[d]?c.A:c.M,fontWeight:r.avail[d]?'700':'400',border:`1px solid ${r.avail[d]?c.A+'40':c.BD}`,textTransform:'capitalize'}}>{fmtShort(d)}</span>)}</div>
-        </div>))}
+  return (
+    <div style={{background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'14px',padding:'16px'}}>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'14px'}}>
+        <button onClick={prevMonth} style={{background:'none',border:'none',color:col.M2,cursor:'pointer',fontSize:'18px',padding:'4px 8px'}}>‹</button>
+        <span style={{fontSize:'14px',fontWeight:'600',color:col.T,textTransform:'capitalize'}}>{fmtMonthYear(viewYear,viewMonth,lang)}</span>
+        <button onClick={nextMonth} style={{background:'none',border:'none',color:col.M2,cursor:'pointer',fontSize:'18px',padding:'4px 8px'}}>›</button>
       </div>
-    </>))}
-
-    {!loading&&tab==='ruta'&&<>
-      {plan.stops.map((s,i)=>(<div key={s.id||i} style={{display:'flex',gap:'12px',marginBottom:'10px'}}>
-        <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
-          <div style={{width:'28px',height:'28px',borderRadius:'50%',background:`${c.A}20`,border:`1.5px solid ${c.A}60`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:'800',color:c.A,flexShrink:0}}>{i+1}</div>
-          {i<plan.stops.length-1&&<div style={{width:'2px',flex:1,background:c.BD,margin:'4px 0'}}/>}
-        </div>
-        <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px',flex:1}}>
-          <div style={{fontSize:'11px',color:c.M2,marginBottom:'4px'}}>{s.cat}</div>
-          <div style={{fontSize:'15px',color:c.T,fontWeight:'600',marginBottom:'4px'}}>{s.name||'Sin nombre'}</div>
-          {s.address&&<div style={{fontSize:'12px',color:c.M2,marginBottom:'8px'}}>📍 {s.address}</div>}
-          <div style={{display:'flex',flexWrap:'wrap',gap:'6px',alignItems:'center'}}>
-            {parseFloat(s.cost)>0&&<span style={{fontSize:'11px',fontWeight:'700',padding:'3px 10px',borderRadius:'20px',background:`${c.A}18`,color:c.A,border:`1px solid ${c.A}35`}}>{s.cost}€/pers.</span>}
-            {(s.address||s.name)&&<a href={`https://maps.google.com/?q=${encodeURIComponent((s.name||'')+(s.address?' '+s.address:''))}`} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:c.M2,textDecoration:'none',padding:'4px 10px',border:`1px solid ${c.BD}`,borderRadius:'8px'}}>Maps 🗺️</a>}
-            {s.link&&<a href={s.link.startsWith('http')?s.link:'https://'+s.link} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:c.A,textDecoration:'none',padding:'4px 10px',border:`1px solid ${c.A}40`,borderRadius:'8px'}}>Reserva ↗</a>}
-            {s.stripeLink&&<a href={s.stripeLink.startsWith('http')?s.stripeLink:'https://'+s.stripeLink} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:'#fff',textDecoration:'none',padding:'4px 10px',borderRadius:'8px',background:'#635BFF',fontWeight:'600'}}>💳 Pagar</a>}
-          </div>
-        </div>
-      </div>))}
-      {budget>0&&<><Divider c={c}/>
-        <div style={{display:'flex',justifyContent:'space-between',padding:'14px 16px',background:`${c.A}0D`,border:`1px solid ${c.A}30`,borderRadius:'12px',marginBottom:'10px'}}><span style={{color:c.M2}}>Por persona</span><span style={{color:c.A,fontSize:'22px',fontWeight:'800'}}>{budget.toFixed(0)}€</span></div>
-        {giftPer>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'12px 16px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'12px',marginBottom:'10px'}}><span style={{color:c.M2,fontSize:'14px'}}>+ regalo</span><span style={{color:c.T,fontWeight:'600'}}>{giftPer.toFixed(0)}€/pers.</span></div>}
-        <div style={{display:'flex',justifyContent:'space-between',padding:'14px 16px',background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'12px'}}><span style={{color:c.T,fontWeight:'700'}}>Total</span><span style={{color:c.A,fontSize:'18px',fontWeight:'800'}}>{(budget+giftPer).toFixed(0)}€</span></div>
-      </>}
-    </>}
-
-    {!loading&&tab==='extras'&&<>
-      {plan.gift?(<div style={{background:c.CARD,border:`1px solid ${c.A}40`,borderRadius:'14px',padding:'16px',marginBottom:'16px'}}>
-        <div style={{fontSize:'11px',color:c.M2,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'12px'}}>🎁 Regalo colectivo</div>
-        <div style={{fontSize:'18px',color:c.T,fontWeight:'600',marginBottom:'8px'}}>{plan.gift.name||'Sin nombre'}</div>
-        {plan.gift.price&&<><div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}><span style={{color:c.M2,fontSize:'14px'}}>Precio total</span><span style={{color:c.A,fontWeight:'700',fontSize:'18px'}}>{plan.gift.price}€</span></div>
-        {total>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:'12px'}}><span style={{color:c.M2,fontSize:'14px'}}>Por persona ({total})</span><span style={{color:c.A,fontWeight:'700'}}>{(parseFloat(plan.gift.price)/total).toFixed(2)}€</span></div>}</>}
-        {plan.gift.link&&<a href={plan.gift.link.startsWith('http')?plan.gift.link:'https://'+plan.gift.link} target="_blank" rel="noreferrer" style={{display:'block',textAlign:'center',padding:'10px',background:`${c.A}20`,border:`1px solid ${c.A}50`,borderRadius:'10px',color:c.A,textDecoration:'none',fontSize:'14px',fontWeight:'600',marginBottom:'10px'}}>Ver el regalo ↗</a>}
-        {plan.gift.stripeLink?
-          (<a href={plan.gift.stripeLink.startsWith('http')?plan.gift.stripeLink:'https://'+plan.gift.stripeLink} target="_blank" rel="noreferrer" style={{display:'block',textAlign:'center',padding:'13px',background:'#635BFF',borderRadius:'12px',color:'#fff',textDecoration:'none',fontSize:'15px',fontWeight:'700'}}>💳 Pagar mi parte con Stripe</a>)
-          :(<div style={{textAlign:'center',padding:'10px',background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'10px',fontSize:'13px',color:c.M2}}>El organizador añadirá pronto el link de pago</div>)
-        }
-      </div>):<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'28px',textAlign:'center'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>🎁</div><div style={{color:c.M2,fontSize:'14px'}}>No hay regalo en este plan</div></div>}
-      {plan.bring?.filter(Boolean).length>0&&<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px'}}>
-        <Lbl c={c}>🎒 Qué llevar</Lbl>
-        {plan.bring.filter(Boolean).map((b,i)=><div key={i} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderBottom:i<plan.bring.filter(Boolean).length-1?`1px solid ${c.BD}`:'none',fontSize:'14px',color:c.T}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:c.A,flexShrink:0}}/>{b}</div>)}
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px',marginBottom:'6px'}}>
+        {dayLabels.map((d,i)=><div key={i} style={{textAlign:'center',fontSize:'11px',color:col.M,fontWeight:'600',padding:'4px 0'}}>{d}</div>)}
+      </div>
+      <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'4px'}}>
+        {Array.from({length:firstDay}).map((_,i)=><div key={'e'+i}/>)}
+        {Array.from({length:days}).map((_,i)=>{
+          const date = new Date(viewYear, viewMonth, i+1);
+          const iso = toISO(date);
+          const isPast = date < now;
+          const isFuture = date > maxDate;
+          const sel = selected.includes(iso);
+          const disabled = isPast || isFuture;
+          return (
+            <div key={i} onClick={()=>!disabled&&toggleDay(iso)} style={{
+              textAlign:'center',padding:'7px 2px',borderRadius:'8px',fontSize:'13px',cursor:disabled?'default':'pointer',
+              background: sel?col.A:disabled?'transparent':col.CARD,
+              color: sel?'#0A0A0A':disabled?col.BD:col.T,
+              fontWeight: sel?'700':'400',
+              border: sel?'none':`1px solid ${disabled?'transparent':col.BD}`,
+              transition:'all .1s',
+            }}>{i+1}</div>
+          );
+        })}
+      </div>
+      {selected.length>0&&<div style={{marginTop:'12px',fontSize:'12px',color:col.M2,display:'flex',flexWrap:'wrap',gap:'4px'}}>
+        {selected.sort().map(d=>(
+          <span key={d} onClick={()=>toggleDay(d)} style={{padding:'3px 8px',background:col.A+'20',color:col.A,border:`1px solid ${col.A}40`,borderRadius:'20px',cursor:'pointer',textTransform:'capitalize',fontSize:'11px',fontWeight:'600'}}>
+            {fmtShort(d,lang)} ×
+          </span>
+        ))}
       </div>}
-    </>}
-
-    {!loading&&tab==='clima'&&<>
-      {best?(<>
-        <div style={{fontSize:'14px',color:c.M2,marginBottom:'16px'}}>Previsión para <span style={{color:c.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate||best)}</span>{plan.city?` en ${plan.city}`:''}</div>
-        {plan.city?<WeatherWidget city={plan.city} date={plan.confirmedDate||best} c={c}/>:<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'28px',textAlign:'center'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>🌤️</div><div style={{color:c.M2,fontSize:'14px'}}>Añade una ciudad al plan para ver el tiempo</div></div>}
-        {plan.city&&plan.dates.length>1&&<><Divider c={c}/><Lbl c={c}>Todas las fechas</Lbl>{plan.dates.map(d=><div key={d} style={{marginBottom:'14px'}}><div style={{fontSize:'13px',color:c.M2,marginBottom:'6px',textTransform:'capitalize'}}>{fmtShort(d)}{d===plan.confirmedDate?' 📌':''}</div><WeatherWidget city={plan.city} date={d} c={c}/></div>)}</>}
-      </>):<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'28px',textAlign:'center'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>⏳</div><div style={{color:c.M2,fontSize:'14px'}}>Necesitas al menos una respuesta</div></div>}
-    </>}
-
-    {!loading&&tab==='transporte'&&<>
-      {fs?(<>
-        <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'12px'}}>
-          <div style={{fontSize:'11px',color:c.M2,fontWeight:'700',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'8px'}}>Destino</div>
-          <div style={{fontSize:'15px',color:c.T,fontWeight:'600'}}>{fs.name}</div>
-          {fs.address&&<div style={{fontSize:'13px',color:c.M2}}>{fs.address}</div>}
-        </div>
-        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'20px'}}>
-          {[{name:'Google Maps',icon:'🗺️',url:`https://maps.google.com/?q=${encodeURIComponent((fs.name||'')+(fs.address?' '+fs.address:''))}`},{name:'Uber',icon:'⚫',url:'https://m.uber.com/'},{name:'Cabify',icon:'🟣',url:'https://cabify.com/'},{name:'Renfe',icon:'🚆',url:'https://www.renfe.com/'},{name:'Metro/EMT',icon:'🚇',url:'https://www.emt.madrid.es/'},{name:'Trainline',icon:'🎫',url:'https://www.thetrainline.com/'}].map(tx=>(
-            <a key={tx.name} href={tx.url} target="_blank" rel="noreferrer" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px',padding:'18px 10px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',textDecoration:'none'}}>
-              <div style={{fontSize:'28px'}}>{tx.icon}</div><div style={{fontSize:'13px',color:c.T,fontWeight:'600',textAlign:'center'}}>{tx.name}</div>
-            </a>
-          ))}
-        </div>
-        {responses.filter(r=>r.how).length>0&&<><Lbl c={c}>¿Cómo va cada uno?</Lbl>{responses.filter(r=>r.how).map((r,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom:`1px solid ${c.BD}`,fontSize:'14px'}}><span style={{color:c.T}}>{r.name}</span><span style={{color:c.M2}}>{r.how==='coche'?'🚗 Coche':r.how==='transporte'?'🚇 Transporte':r.how==='uber'?'🚕 Taxi':r.how==='andando'?'🚶 Andando':'🚲 Bici'}</span></div>)}</>}
-      </>):<div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'28px',textAlign:'center'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>📍</div><div style={{color:c.M2,fontSize:'14px'}}>Añade paradas a la ruta para ver el transporte</div></div>}
-    </>}
-  </div>);
+    </div>
+  );
 }
 
-// ── App ───────────────────────────────────────────
-function App(){
-  const[theme,setTheme]=useState(()=>localStorage.getItem('queda_theme')||getSysTheme());
-  const[screen,setScreen]=useState('home');
-  const[plan,setPlan]=useState(null);
-  const[isOrg,setIsOrg]=useState(false);
-  const c=C(theme);
+// ══════════════════════════════════════════
+// TIME PICKER
+// ══════════════════════════════════════════
+function TimePicker({ times, onChange, c, lang, tz }) {
+  const col = c || COLORS('dark');
+  const t = LANG[lang];
+  const [hour, setHour] = useState('20');
+  const [min, setMin] = useState('00');
 
-  useEffect(()=>{applyTheme(theme);},[theme]);
-  const toggleTheme=()=>setTheme(t=>{const next=t==='dark'?'light':'dark';applyTheme(next);return next;});
+  const addTime = () => {
+    const val = `${hour}:${min}`;
+    if (!times.includes(val)) onChange([...times, val].sort());
+  };
+  const remove = v => onChange(times.filter(x=>x!==v));
 
-  useEffect(()=>{
-    const code=new URLSearchParams(location.search).get('code');
-    if(code){loadPlan(code).then(p=>{if(p){setPlan(p);setIsOrg(false);setScreen('respond');}});}
-  },[]);
+  return (
+    <div>
+      <div style={{display:'flex',gap:'8px',alignItems:'flex-end',marginBottom:'10px'}}>
+        <div style={{flex:1}}>
+          <Lbl c={c}>{t.hour}</Lbl>
+          <select value={hour} onChange={e=>setHour(e.target.value)} style={{background:col.CARD,border:`1px solid ${col.BD}`,color:col.T,fontSize:'14px',padding:'10px 12px',borderRadius:'10px',width:'100%',fontFamily:'inherit'}}>
+            {Array.from({length:24},(_,i)=>i.toString().padStart(2,'0')).map(h=><option key={h} value={h}>{h}:00</option>)}
+          </select>
+        </div>
+        <div style={{flex:1}}>
+          <Lbl c={c}>{t.minute}</Lbl>
+          <select value={min} onChange={e=>setMin(e.target.value)} style={{background:col.CARD,border:`1px solid ${col.BD}`,color:col.T,fontSize:'14px',padding:'10px 12px',borderRadius:'10px',width:'100%',fontFamily:'inherit'}}>
+            {['00','15','30','45'].map(m=><option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+        <Btn onClick={addTime} sm c={c} style={{height:'40px',marginBottom:'1px'}}>{t.addTime}</Btn>
+      </div>
+      {tz&&<div style={{fontSize:'12px',color:col.M2,marginBottom:'8px'}}>🌍 {tz}</div>}
+      {times.length>0&&<div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+        {times.map(h=>(
+          <span key={h} onClick={()=>remove(h)} style={{fontSize:'12px',padding:'5px 11px',borderRadius:'20px',border:`1px solid ${col.A}50`,background:`${col.A}15`,color:col.A,cursor:'pointer',fontWeight:'600'}}>
+            {h} ×
+          </span>
+        ))}
+      </div>}
+    </div>
+  );
+}
 
-  const handleJoin=async code=>{const p=await loadPlan(code);if(p){setPlan(p);setIsOrg(false);setScreen('respond');return true;}return false;};
-  const handleOpenFromProfile=async id=>{const p=await loadPlan(id);if(p){const mine=getMyPlans().find(x=>x.id===id);setPlan(p);setIsOrg(mine?.role==='organizer');setScreen('results');}};
+// ══════════════════════════════════════════
+// WEATHER
+// ══════════════════════════════════════════
+function WeatherWidget({ city, date, c, lang }) {
+  const col = c || COLORS('dark');
+  const [w, setW] = useState(null);
+  const [loading, setL] = useState(false);
+  useEffect(() => {
+    if (!city || !date) return;
+    setL(true); setW(null);
+    (async () => {
+      try {
+        const geo = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(city)}&count=1&language=${lang}`).then(r=>r.json());
+        if (!geo.results?.length) { setL(false); return; }
+        const { latitude: lat, longitude: lon } = geo.results[0];
+        const wd = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=Europe/Madrid&start_date=${date}&end_date=${date}`).then(r=>r.json());
+        if (wd.daily) setW({ code: wd.daily.weathercode[0], max: Math.round(wd.daily.temperature_2m_max[0]), min: Math.round(wd.daily.temperature_2m_min[0]), rain: wd.daily.precipitation_probability_max[0] });
+      } catch {} finally { setL(false); }
+    })();
+  }, [city, date]);
+  if (!city || !date) return null;
+  if (loading) return <div style={{fontSize:'12px',color:col.M,padding:'12px 0'}}>...</div>;
+  if (!w) return <div style={{fontSize:'12px',color:col.M,padding:'12px 0'}}>City not found.</div>;
+  const desc = WX_DESC[lang]?.[w.code] || '';
+  return (
+    <div style={{background:`${col.A}0A`,border:`1px solid ${col.A}25`,borderRadius:'12px',padding:'14px 16px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+      <div><div style={{fontSize:'20px',marginBottom:'2px'}}>{WX[w.code]||'🌡️'} {desc}</div><div style={{fontSize:'12px',color:col.M2}}>{lang==='en'?'Rain':'Lluvia'}: {w.rain}%</div></div>
+      <div style={{textAlign:'right'}}><div style={{fontSize:'28px',fontWeight:'800',color:col.A}}>{w.max}°</div><div style={{fontSize:'13px',color:col.M2}}>{w.min}° min</div></div>
+    </div>
+  );
+}
 
-  return(<div style={{minHeight:'100vh',background:c.BG,color:c.T,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
-    <div style={{borderBottom:`1px solid ${c.BD}`,padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:c.BG+'F0',backdropFilter:'blur(10px)',zIndex:10}}>
-      <div onClick={()=>setScreen('home')} style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'22px',cursor:'pointer',color:c.T,letterSpacing:'-.02em'}}>queda<span style={{color:c.A}}>.</span></div>
-      <div style={{display:'flex',alignItems:'center',gap:'10px'}}>
-        {plan&&screen!=='home'&&screen!=='create'&&screen!=='profile'&&<div style={{fontSize:'12px',color:c.M}}>código: <span style={{color:c.A,fontWeight:'800',letterSpacing:'.1em'}}>{plan.id}</span></div>}
-        <button onClick={toggleTheme} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',fontSize:'16px'}}>{theme==='dark'?'☀️':'🌙'}</button>
+// ══════════════════════════════════════════
+// HOME
+// ══════════════════════════════════════════
+function HomeScreen({ onCreate, onJoin, onProfile, c, lang, toggleLang, toggleTheme, theme }) {
+  const col = c; const t = LANG[lang];
+  const [code, setCode] = useState('');
+  const [err, setErr] = useState('');
+  const [loading, setL] = useState(false);
+  const go = async () => { setErr(''); setL(true); const ok = await onJoin(code.trim().toUpperCase()); setL(false); if (!ok) setErr(t.codeNotFound); };
+  return (
+    <div style={{padding:'52px 24px 40px',maxWidth:'420px',margin:'0 auto'}}>
+      <div style={{marginBottom:'52px'}}>
+        <Badge color={col.A}>QUEDA · {lang==='en'?'Plans without chaos':'Planes sin caos'}</Badge>
+        <h1 style={{fontFamily:"'Syne',serif",fontSize:'48px',fontWeight:'800',color:col.T,margin:'20px 0 16px',lineHeight:1}}>{t.appTagline.split(' ').slice(0,-1).join(' ')}<br/><span style={{color:col.A}}>{t.appTagline.split(' ').slice(-1)[0]}</span></h1>
+        <p style={{color:col.M2,fontSize:'15px',lineHeight:1.7}}>{t.appSub}</p>
+      </div>
+      <Btn onClick={onCreate} full style={{padding:'16px',fontSize:'16px',marginBottom:'10px'}} c={col}>{t.createPlan}</Btn>
+      <Btn onClick={onProfile} v="secondary" full style={{padding:'13px',fontSize:'14px',marginBottom:'16px'}} c={col}>{t.myPlans}</Btn>
+      <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'14px'}}>
+        <div style={{flex:1,height:'1px',background:col.BD}}/><span style={{color:col.M,fontSize:'11px',fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase'}}>{t.orJoin}</span><div style={{flex:1,height:'1px',background:col.BD}}/>
+      </div>
+      <div style={{display:'flex',gap:'8px'}}>
+        <Inp value={code} onChange={v=>setCode(v.toUpperCase())} placeholder={t.codePlaceholder} mono c={col}/>
+        <Btn onClick={go} v="secondary" disabled={code.length<4||loading} style={{flexShrink:0}} c={col}>{loading?'...':t.go}</Btn>
+      </div>
+      {err&&<div style={{color:'#ff6b6b',fontSize:'13px',marginTop:'10px'}}>{err}</div>}
+      <div style={{marginTop:'48px',padding:'20px',background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'16px'}}>
+        <div style={{fontSize:'11px',color:col.M,fontWeight:'700',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'14px'}}>{t.howItWorks}</div>
+        {[t.step1,t.step2,t.step3,t.step4].map((tx,i)=>(
+          <div key={i} style={{display:'flex',gap:'12px',marginBottom:'10px',fontSize:'14px'}}>
+            <span style={{color:col.A,fontWeight:'700',minWidth:'18px'}}>{i+1}.</span><span style={{color:col.T}}>{tx}</span>
+          </div>
+        ))}
       </div>
     </div>
-    {screen==='home'&&<HomeScreen onCreate={()=>setScreen('create')} onJoin={handleJoin} onProfile={()=>setScreen('profile')} theme={theme} toggleTheme={toggleTheme} c={c}/>}
-    {screen==='profile'&&<ProfileScreen onBack={()=>setScreen('home')} onOpen={handleOpenFromProfile} c={c}/>}
-    {screen==='create'&&<CreateScreen onBack={()=>setScreen('home')} onCreated={p=>{setPlan(p);setIsOrg(true);setScreen('share');}} c={c}/>}
-    {screen==='share'&&plan&&<ShareScreen plan={plan} onViewResults={()=>setScreen('results')} onBack={()=>setScreen('home')} c={c}/>}
-    {screen==='respond'&&plan&&<RespondScreen plan={plan} onBack={()=>setScreen('home')} onDone={()=>setScreen('results')} c={c}/>}
-    {screen==='results'&&plan&&<ResultsScreen plan={ip} onBack={()=>setScreen(isOrg?'share':'home')} isOrg={isOrg} c={c}/>}
-  </div>);
+  );
 }
+
+// ══════════════════════════════════════════
+// PROFILE
+// ══════════════════════════════════════════
+function ProfileScreen({ onBack, onOpen, c, lang }) {
+  const col = c; const t = LANG[lang];
+  const plans = getMyPlans();
+  return (
+    <div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+      <Back onClick={onBack} c={col} label={t.back}/>
+      <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'6px'}}>{t.myPlansTitle}</h2>
+      <p style={{color:col.M2,fontSize:'13px',marginBottom:'22px'}}>{t.myPlansSub}</p>
+      {plans.length===0
+        ? <Card c={col} style={{textAlign:'center',padding:'32px'}}>
+            <div style={{fontSize:'36px',marginBottom:'12px'}}>📋</div>
+            <div style={{color:col.T,fontWeight:'500',marginBottom:'6px'}}>{t.noPlans}</div>
+            <div style={{color:col.M2,fontSize:'13px'}}>{t.noPlansSub}</div>
+          </Card>
+        : plans.map(p=>(
+            <div key={p.id} onClick={()=>onOpen(p.id)} style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'10px',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+              <div>
+                <div style={{fontSize:'15px',color:col.T,fontWeight:'500',marginBottom:'4px'}}>{p.name}</div>
+                <div style={{fontSize:'12px',color:col.M2}}><span style={{color:col.A,fontWeight:'700',letterSpacing:'.08em'}}>{p.id}</span>{' · '}{p.role==='organizer'?t.organizer:t.guest}</div>
+              </div>
+              <span style={{color:col.M2,fontSize:'18px'}}>→</span>
+            </div>
+          ))
+      }
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// CREATE
+// ══════════════════════════════════════════
+function CreateScreen({ onBack, onCreated, c, lang }) {
+  const col = c; const t = LANG[lang];
+  const [step, setStep] = useState(0);
+  const [name, setName] = useState('');
+  const [desc, setDesc] = useState('');
+  const [org, setOrg] = useState('');
+  const [orgEmail, setOrgEmail] = useState('');
+  const [selDates, setSelDates] = useState([]);
+  const [selTimes, setSelTimes] = useState({});
+  const [planTz, setPlanTz] = useState(TIMEZONES[0].tz);
+  const [stops, setStops] = useState([{id:1,name:'',cat:t.cat[0],address:'',cost:'',link:'',stripeLink:''}]);
+  const [city, setCity] = useState('');
+  const [giftEnabled, setGiftEnabled] = useState(false);
+  const [gift, setGift] = useState({name:'',link:'',price:'',stripeLink:''});
+  const [bring, setBring] = useState([{id:1,text:'',checked:false}]);
+  const [saving, setSaving] = useState(false);
+
+  const addStop = () => setStops(p=>[...p,{id:Date.now(),name:'',cat:t.cat[0],address:'',cost:'',link:'',stripeLink:''}]);
+  const upd = (id,k,v) => setStops(p=>p.map(s=>s.id===id?{...s,[k]:v}:s));
+  const rem = id => setStops(p=>p.filter(s=>s.id!==id));
+  const budget = stops.reduce((s,x)=>s+(parseFloat(x.cost)||0),0);
+  const addBring = () => setBring(p=>[...p,{id:Date.now(),text:'',checked:false}]);
+  const updBring = (id,k,v) => setBring(p=>p.map(b=>b.id===id?{...b,[k]:v}:b));
+  const remBring = id => setBring(p=>p.filter(b=>b.id!==id));
+
+  const setTimesForDate = (date, times) => setSelTimes(prev=>({...prev,[date]:times}));
+
+  const create = async () => {
+    setSaving(true);
+    const plan = {
+      id: genId(), name: name.trim(), desc: desc.trim(),
+      organizer: org.trim(), organizerEmail: orgEmail.trim(),
+      dates: [...selDates].sort(), times: selTimes, timezone: planTz,
+      stops, city, gift: giftEnabled?gift:null,
+      bring: bring.filter(b=>b.text.trim()),
+      confirmedDate: null, lang,
+      createdAt: new Date().toISOString(),
+    };
+    await savePlan(plan);
+    addMyPlan(plan.id, plan.name, 'organizer');
+    ls.set('q_state', { screen:'share', planId: plan.id, isOrg: true });
+    onCreated(plan);
+  };
+
+  const stepLabels = [t.basics, lang==='en'?'Dates':'Fechas', lang==='en'?'Route':'Ruta', t.extras];
+
+  const inlineInput = (v, ph, k, sid) => (
+    <input value={v} onChange={e=>upd(sid,k,e.target.value)} placeholder={ph}
+      style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'8px',padding:'9px 12px',color:col.T,fontSize:'13px',fontFamily:'inherit',outline:'none',boxSizing:'border-box',width:'100%'}}/>
+  );
+
+  return (
+    <div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+      <Back onClick={step===0?onBack:()=>setStep(s=>s-1)} c={col} label={t.back}/>
+      <Stepper cur={step} c={col} labels={stepLabels}/>
+
+      {step===0&&<>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'24px'}}>{t.basics}</h2>
+        <div style={{marginBottom:'14px'}}><Lbl c={col}>{t.planName}</Lbl><Inp value={name} onChange={setName} placeholder={t.planNamePh} c={col}/></div>
+        <div style={{marginBottom:'14px'}}><Lbl c={col}>{t.description}</Lbl><Txa value={desc} onChange={setDesc} placeholder={t.descPh} c={col}/></div>
+        <div style={{marginBottom:'14px'}}><Lbl c={col}>{t.yourName}</Lbl><Inp value={org} onChange={setOrg} placeholder={t.yourNamePh} c={col}/></div>
+        <div style={{marginBottom:'24px'}}><Lbl c={col}>{t.yourEmail}</Lbl><Inp value={orgEmail} onChange={setOrgEmail} placeholder={t.emailPh} type="email" c={col}/></div>
+        <Btn onClick={()=>setStep(1)} disabled={!name.trim()||!org.trim()} full style={{padding:'15px'}} c={col}>{t.continue}</Btn>
+      </>}
+
+      {step===1&&<>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'6px'}}>{t.datesAndTimes}</h2>
+        <p style={{color:col.M2,fontSize:'13px',marginBottom:'16px'}}>{t.datesAndTimesSub}</p>
+        <div style={{marginBottom:'16px'}}>
+          <Lbl c={col}>{t.timezone}</Lbl>
+          <select value={planTz} onChange={e=>setPlanTz(e.target.value)} style={{background:col.CARD,border:`1px solid ${col.BD}`,color:col.T,fontSize:'13px',padding:'10px 12px',borderRadius:'10px',width:'100%',fontFamily:'inherit',marginBottom:'16px'}}>
+            {TIMEZONES.map(tz=><option key={tz.tz} value={tz.tz}>{tz.label}</option>)}
+          </select>
+        </div>
+        <Lbl c={col}>{t.selectDate}</Lbl>
+        <CalendarPicker selected={selDates} onChange={setSelDates} c={col} lang={lang}/>
+        {selDates.length>0&&<>
+          <HR c={col}/>
+          <Lbl c={col}>{t.possibleTimes}</Lbl>
+          {selDates.sort().map(d=>(
+            <div key={d} style={{background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'12px',padding:'14px',marginBottom:'10px'}}>
+              <div style={{fontSize:'13px',color:col.A,fontWeight:'600',marginBottom:'10px',textTransform:'capitalize'}}>{fmtShort(d,lang)}</div>
+              <TimePicker times={selTimes[d]||[]} onChange={times=>setTimesForDate(d,times)} c={col} lang={lang} tz={TIMEZONES.find(x=>x.tz===planTz)?.label}/>
+            </div>
+          ))}
+        </>}
+        <div style={{marginTop:'20px'}}><Btn onClick={()=>setStep(2)} disabled={selDates.length<1} full style={{padding:'15px'}} c={col}>{t.continue}</Btn></div>
+      </>}
+
+      {step===2&&<>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'6px'}}>{t.routeAndBudget}</h2>
+        <p style={{color:col.M2,fontSize:'13px',marginBottom:'18px'}}>{t.routeSub}</p>
+        <div style={{marginBottom:'14px'}}><Lbl c={col}>{t.city}</Lbl><Inp value={city} onChange={setCity} placeholder={t.cityPh} c={col}/></div>
+        <HR c={col}/>
+        {stops.map((s,i)=>(
+          <div key={s.id} style={{background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'10px'}}>
+            <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
+              <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                <div style={{width:'24px',height:'24px',borderRadius:'50%',background:`${col.A}25`,border:`1px solid ${col.A}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'11px',fontWeight:'800',color:col.A}}>{i+1}</div>
+                <span style={{fontSize:'12px',color:col.M2,fontWeight:'600',textTransform:'uppercase',letterSpacing:'.05em'}}>{t.stop} {i+1}</span>
+              </div>
+              {stops.length>1&&<button onClick={()=>rem(s.id)} style={{background:'none',border:'none',color:col.M,cursor:'pointer',fontSize:'18px'}}>×</button>}
+            </div>
+            <select value={s.cat} onChange={e=>upd(s.id,'cat',e.target.value)} style={{background:col.CARD,border:`1px solid ${col.BD}`,color:col.T,fontSize:'13px',padding:'9px 12px',borderRadius:'8px',width:'100%',fontFamily:'inherit',marginBottom:'8px'}}>
+              {t.cat.map(cat=><option key={cat} value={cat}>{cat}</option>)}
+            </select>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+              {inlineInput(s.name,t.placeName,'name',s.id)}
+              {inlineInput(s.address,t.address,'address',s.id)}
+            </div>
+            <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+              {inlineInput(s.cost,t.costPer,'cost',s.id)}
+              {inlineInput(s.link,t.bookingLink,'link',s.id)}
+            </div>
+            {inlineInput(s.stripeLink||'',t.stripeLink,'stripeLink',s.id)}
+          </div>
+        ))}
+        <Btn onClick={addStop} v="secondary" full sm style={{marginBottom:'14px'}} c={col}>{t.addStop}</Btn>
+        {budget>0&&<div style={{background:`${col.A}0D`,border:`1px solid ${col.A}30`,borderRadius:'12px',padding:'14px 16px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{color:col.M2,fontSize:'14px'}}>{t.estimatedPer}</span><span style={{color:col.A,fontSize:'22px',fontWeight:'800'}}>{budget.toFixed(0)}€</span></div>}
+        <Btn onClick={()=>setStep(3)} full style={{padding:'15px'}} c={col}>{t.continue}</Btn>
+      </>}
+
+      {step===3&&<>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'6px'}}>{t.extras}</h2>
+        <div style={{marginBottom:'22px'}}>
+          <div onClick={()=>setGiftEnabled(g=>!g)} style={{display:'flex',alignItems:'center',gap:'12px',padding:'14px 16px',background:col.CARD,border:`1px solid ${giftEnabled?col.A+'50':col.BD}`,borderRadius:'12px',cursor:'pointer',marginBottom:'10px'}}>
+            <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${giftEnabled?col.A:col.BD}`,background:giftEnabled?col.A:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800',flexShrink:0}}>{giftEnabled?'✓':''}</div>
+            <div><div style={{fontSize:'14px',color:col.T,fontWeight:'500'}}>{t.giftToggle}</div><div style={{fontSize:'12px',color:col.M2}}>{t.giftSub}</div></div>
+          </div>
+          {giftEnabled&&<div style={{background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'12px',padding:'14px',display:'flex',flexDirection:'column',gap:'8px'}}>
+            {[[gift.name,t.giftName,'name'],[gift.link,t.giftLink,'link'],[gift.price,t.giftPrice,'price'],[gift.stripeLink||'',t.stripeLink,'stripeLink']].map(([v,ph,k])=>(
+              <input key={k} value={v} onChange={e=>setGift(g=>({...g,[k]:e.target.value}))} type={k==='price'?'number':'text'} placeholder={ph}
+                style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'8px',padding:'10px 12px',color:col.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box'}}/>
+            ))}
+            <div style={{fontSize:'11px',color:col.M2,padding:'8px',background:col.CARD,borderRadius:'8px',lineHeight:1.6}}>{t.stripeTip}</div>
+          </div>}
+        </div>
+        <div style={{marginBottom:'24px'}}>
+          <Lbl c={col}>{t.bringList}</Lbl>
+          {bring.map((b)=>(
+            <div key={b.id} style={{display:'flex',gap:'8px',marginBottom:'8px',alignItems:'center'}}>
+              <div onClick={()=>updBring(b.id,'checked',!b.checked)} style={{width:'22px',height:'22px',borderRadius:'6px',border:`2px solid ${b.checked?col.A:col.BD}`,background:b.checked?col.A:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800',cursor:'pointer',flexShrink:0}}>{b.checked?'✓':''}</div>
+              <input value={b.text} onChange={e=>updBring(b.id,'text',e.target.value)} placeholder={t.newItem}
+                style={{flex:1,background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'8px',padding:'10px 12px',color:col.T,fontSize:'14px',fontFamily:'inherit',outline:'none'}}/>
+              {bring.length>1&&<button onClick={()=>remBring(b.id)} style={{background:'none',border:`1px solid ${col.BD}`,color:col.M,cursor:'pointer',fontSize:'16px',borderRadius:'8px',width:'36px'}}>×</button>}
+            </div>
+          ))}
+          <Btn onClick={addBring} v="secondary" sm c={col}>{t.addItem}</Btn>
+        </div>
+        <Btn onClick={create} disabled={saving} full style={{padding:'16px',fontSize:'16px'}} c={col}>{saving?t.saving:t.createPlanBtn}</Btn>
+      </>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// SHARE
+// ══════════════════════════════════════════
+function ShareScreen({ plan, onViewResults, onBack, c, lang }) {
+  const col = c; const t = LANG[lang];
+  const [copied, setCopied] = useState(false);
+  const url = location.href.split('?')[0] + '?code=' + plan.id;
+  const copy = () => { navigator.clipboard.writeText(url).catch(()=>{}); setCopied(true); setTimeout(()=>setCopied(false),2000); };
+  const wa = () => {
+    const msg = lang==='en'
+      ? `Hey! I'm inviting you to *${plan.name}*.\n\nMark when you can here:\n${url}\n\nOr use code *${plan.id}*`
+      : `¡Oye! Te invito al plan *${plan.name}*.\n\nIndica cuándo puedes aquí:\n${url}\n\nO usa el código *${plan.id}*`;
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  };
+  return (
+    <div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+      <Back onClick={onBack} c={col} label={t.back}/>
+      <div style={{textAlign:'center',marginBottom:'28px'}}>
+        <div style={{fontSize:'52px',marginBottom:'14px'}}>🎉</div>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.T,marginBottom:'8px'}}>{t.planCreated}</h2>
+        <p style={{color:col.M2,fontSize:'14px'}}>{t.shareWith}</p>
+      </div>
+      <Card c={col} accent style={{textAlign:'center',marginBottom:'14px'}}>
+        <div style={{fontSize:'11px',color:col.M,fontWeight:'700',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:'14px'}}>{t.planCode}</div>
+        <div style={{fontFamily:'monospace',fontSize:'58px',fontWeight:'900',color:col.A,letterSpacing:'.2em',lineHeight:1,marginBottom:'14px'}}>{plan.id}</div>
+        <div style={{fontSize:'15px',color:col.T,fontWeight:'600',marginBottom:'4px'}}>{plan.name}</div>
+        <div style={{fontSize:'13px',color:col.M2}}>@ {plan.organizer} · {plan.dates.length} {lang==='en'?'date':'fecha'}{plan.dates.length>1?'s':''}</div>
+      </Card>
+      <Btn onClick={wa} v="wa" full style={{marginBottom:'10px',padding:'15px',fontSize:'15px'}} c={col}>{t.shareWhatsapp}</Btn>
+      <Btn onClick={copy} full style={{marginBottom:'10px',padding:'14px'}} c={col}>{copied?t.linkCopied:t.copyLink}</Btn>
+      <Btn onClick={onViewResults} v="secondary" full style={{padding:'14px'}} c={col}>{t.viewResults}</Btn>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// RESPOND
+// ══════════════════════════════════════════
+function RespondScreen({ plan, onBack, onDone, c, lang: appLang }) {
+  const planLang = plan.lang || appLang;
+  const col = c;
+  const t = LANG[planLang];
+  const [name, setName] = useState('');
+  const [avail, setAvail] = useState({});
+  const [timePref, setTimePref] = useState({});
+  const [how, setHow] = useState('');
+  const [howOther, setHowOther] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const togD = d => setAvail(p=>({...p,[d]:!p[d]}));
+  const togT = (d,h) => setTimePref(p=>({...p,[d]:(p[d]||[]).includes(h)?(p[d]||[]).filter(x=>x!==h):[...(p[d]||[]),h]}));
+
+  const submit = async () => {
+    if (!name.trim()) return;
+    setSaving(true);
+    const howFinal = how==='other' ? howOther : how;
+    const resp = { name:name.trim(), avail, timePref, how:howFinal, at:new Date().toISOString() };
+    await saveResp(plan.id, name.trim(), resp);
+    addMyPlan(plan.id, plan.name, 'invited');
+    await sendEmail(plan, name.trim(), plan.dates.filter(d=>avail[d]).map(d=>fmtShort(d,planLang)));
+    setSaving(false); setDone(true);
+    setTimeout(onDone, 1800);
+  };
+
+  const budget = plan.stops.reduce((s,p2)=>s+(parseFloat(p2.cost)||0),0);
+  const giftPer = plan.gift?.price ? parseFloat(plan.gift.price) : 0;
+
+  if (done) return (
+    <div style={{padding:'80px 24px',maxWidth:'420px',margin:'0 auto',textAlign:'center'}}>
+      <div style={{fontSize:'64px',marginBottom:'20px'}}>✅</div>
+      <h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.A,marginBottom:'10px'}}>{t.saved}</h2>
+      <p style={{color:col.M2}}>{t.savedSub}</p>
+    </div>
+  );
+
+  return (
+    <div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+      <Back onClick={onBack} c={col} label={t.back}/>
+      {plan.confirmedDate&&(
+        <div style={{background:`${col.A}15`,border:`1px solid ${col.A}50`,borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',gap:'10px',alignItems:'center'}}>
+          <div style={{fontSize:'20px'}}>📌</div>
+          <div>
+            <div style={{fontSize:'11px',color:col.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>{t.confirmedDate}</div>
+            <div style={{fontSize:'15px',color:col.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate,planLang)}</div>
+          </div>
+        </div>
+      )}
+      <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'4px'}}>{plan.name}</h2>
+      <div style={{fontSize:'13px',color:col.M2,marginBottom:'8px'}}>@ {plan.organizer}</div>
+      {plan.desc&&<p style={{fontSize:'14px',color:col.T,lineHeight:1.7,marginBottom:'16px',padding:'12px 14px',background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'10px'}}>{plan.desc}</p>}
+      {budget>0&&<div style={{background:`${col.A}0D`,border:`1px solid ${col.A}30`,borderRadius:'10px',padding:'12px 16px',marginBottom:'16px',display:'flex',justifyContent:'space-between'}}><span style={{color:col.M2,fontSize:'13px'}}>{t.estimatedPer}</span><span style={{color:col.A,fontWeight:'700'}}>{(budget+giftPer).toFixed(0)}€/persona</span></div>}
+      <HR c={col}/>
+      <div style={{marginBottom:'16px'}}><Lbl c={col}>{t.yourName}</Lbl><Inp value={name} onChange={setName} placeholder={t.yourNamePh} c={col}/></div>
+      <div style={{marginBottom:'20px'}}>
+        <Lbl c={col}>{t.yourAvailability}</Lbl>
+        {plan.dates.map(d=>{
+          const on=avail[d]; const ts=plan.times?.[d]||[];
+          return (
+            <div key={d} style={{marginBottom:'8px'}}>
+              <div onClick={()=>togD(d)} style={{padding:'12px 14px',borderRadius:'10px',border:`1px solid ${on?col.A:col.BD}`,background:on?`${col.A}12`:col.CARD,cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',transition:'all .12s'}}>
+                <span style={{fontSize:'14px',color:on?col.A:col.T,fontWeight:on?'600':'400',textTransform:'capitalize'}}>{fmtDate(d,planLang)}</span>
+                <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${on?col.A:col.BD}`,background:on?col.A:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800'}}>{on?'✓':''}</div>
+              </div>
+              {on&&ts.length>0&&(
+                <div style={{padding:'10px 14px',background:col.CARD2,borderRadius:'0 0 10px 10px',border:`1px solid ${col.BD}`,borderTop:'none'}}>
+                  <div style={{fontSize:'11px',color:col.M,fontWeight:'700',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'7px'}}>{t.whatTime}</div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:'5px'}}>
+                    {ts.map(h=>{const o=(timePref[d]||[]).includes(h);return<span key={h} onClick={()=>togT(d,h)} style={{fontSize:'12px',padding:'4px 11px',borderRadius:'20px',border:`1px solid ${o?col.A:col.BD}`,background:o?`${col.A}20`:'transparent',color:o?col.A:col.M2,cursor:'pointer',fontWeight:o?'700':'400'}}>{h}</span>;})}
+                  </div>
+                  {plan.timezone&&<div style={{fontSize:'11px',color:col.M2,marginTop:'6px'}}>🌍 {TIMEZONES.find(x=>x.tz===plan.timezone)?.label||plan.timezone}</div>}
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+      <div style={{marginBottom:'20px'}}>
+        <Lbl c={col}>{t.howGetThere}</Lbl>
+        <select value={how} onChange={e=>setHow(e.target.value)} style={{background:col.CARD,border:`1px solid ${col.BD}`,color:how?col.T:col.M,fontSize:'14px',padding:'12px 14px',borderRadius:'10px',width:'100%',fontFamily:'inherit',marginBottom:how==='other'?'8px':'0'}}>
+          <option value=''>—</option>
+          <option value='car'>{t.how_car}</option>
+          <option value='transit'>{t.how_transit}</option>
+          <option value='taxi'>{t.how_taxi}</option>
+          <option value='walk'>{t.how_walk}</option>
+          <option value='bike'>{t.how_bike}</option>
+          <option value='other'>{t.how_other}</option>
+        </select>
+        {how==='other'&&<Inp value={howOther} onChange={setHowOther} placeholder={t.how_otherPh} c={col}/>}
+      </div>
+      <Btn onClick={submit} disabled={!name.trim()||saving} full style={{padding:'15px',fontSize:'15px'}} c={col}>{saving?t.saving:t.confirmBtn}</Btn>
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// RESULTS
+// ══════════════════════════════════════════
+function ResultsScreen({ plan: initPlan, onBack, isOrg, c, lang }) {
+  const [plan, setPlan] = useState(initPlan);
+  const col = c; const t = LANG[lang];
+  const [tab, setTab] = useState('who');
+  const [responses, setRs] = useState([]);
+  const [loading, setL] = useState(true);
+  const [confirming, setCon] = useState(false);
+  const [reminderSent, setReminderSent] = useState(false);
+
+  const refresh = useCallback(async () => {
+    setL(true);
+    const rs = await loadResps(plan.id);
+    setRs(rs);
+    setL(false);
+  }, [plan.id]);
+
+  useEffect(() => { refresh(); }, [refresh]);
+
+  const total = responses.length;
+  const counts = plan.dates.reduce((acc,d)=>{ acc[d]=responses.filter(r=>r.avail[d]).length; return acc; },{});
+  const mx = Math.max(...Object.values(counts), 1);
+  const best = total>0 ? plan.dates.reduce((b,d)=>counts[d]>counts[b]?d:b, plan.dates[0]) : null;
+  const budget = plan.stops.reduce((s,p2)=>s+(parseFloat(p2.cost)||0),0);
+  const giftPer = plan.gift?.price ? parseFloat(plan.gift.price) : 0;
+  const fs = plan.stops.find(s=>s.address||s.name);
+
+  const confirmDate = async d => {
+    setCon(true);
+    const up = {...plan, confirmedDate:d};
+    await updatePlan(up);
+    setPlan(up);
+    ls.set('q_state', {...ls.get('q_state',{}), planConfirmed: d });
+    setCon(false);
+  };
+
+  const waConfirm = () => {
+    if (!plan.confirmedDate) return;
+    const url = location.href.split('?')[0]+'?code='+plan.id;
+    const msg = lang==='en'
+      ? `📌 *${plan.name}* — date confirmed!\n\n🗓️ ${fmtDate(plan.confirmedDate,lang)}\n\n${url}`
+      : `📌 *${plan.name}* — ¡fecha confirmada!\n\n🗓️ ${fmtDate(plan.confirmedDate,lang)}\n\n${url}`;
+    window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');
+  };
+
+  const sendReminder = async () => {
+    if (!EMAIL_ON || !plan.organizerEmail) return;
+    setReminderSent(true);
+    await sendEmail(plan, lang==='en'?'Reminder':'Recordatorio', [plan.confirmedDate ? fmtDate(plan.confirmedDate,lang) : '']);
+  };
+
+  const TABS = ['who','route','extras','weather','transport'];
+  const TLABELS = t.tabs;
+  const tlabel = k => ({ who:TLABELS.who, route:TLABELS.route, extras:TLABELS.extras, weather:TLABELS.weather, transport:TLABELS.transport }[k]);
+
+  const howLabel = v => {
+    const m = { car:t.how_car, transit:t.how_transit, taxi:t.how_taxi, walk:t.how_walk, bike:t.how_bike };
+    return m[v] || `🚀 ${v}`;
+  };
+
+  return (
+    <div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+      <Back onClick={onBack} c={col} label={t.back}/>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'4px'}}>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'24px',fontWeight:'800',color:col.T,margin:0}}>{plan.name}</h2>
+        <button onClick={refresh} style={{background:'none',border:`1px solid ${col.BD}`,color:col.M2,cursor:'pointer',fontSize:'12px',padding:'6px 10px',borderRadius:'8px',fontFamily:'inherit'}}>↻</button>
+      </div>
+      <div style={{fontSize:'13px',color:col.M2,marginBottom:'12px'}}>{total} {total===1?t.responses:t.responsesPlural} · <span style={{color:col.A,fontWeight:'700',letterSpacing:'.1em'}}>{plan.id}</span></div>
+
+      {plan.confirmedDate&&(
+        <div style={{background:`${col.A}15`,border:`1px solid ${col.A}50`,borderRadius:'12px',padding:'14px 16px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+          <div>
+            <div style={{fontSize:'11px',color:col.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>{t.confirmedDate}</div>
+            <div style={{fontSize:'15px',color:col.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate,lang)}</div>
+          </div>
+          <div style={{display:'flex',gap:'6px'}}>
+            {isOrg&&<button onClick={waConfirm} style={{background:'#25D366',border:'none',borderRadius:'10px',padding:'8px 12px',color:'#fff',fontSize:'12px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>{t.notifyGroup}</button>}
+            {isOrg&&EMAIL_ON&&<button onClick={sendReminder} style={{background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'10px',padding:'8px 12px',color:reminderSent?col.A:col.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{reminderSent?t.reminderSent:t.reminder}</button>}
+          </div>
+        </div>
+      )}
+
+      <div style={{display:'flex',gap:'5px',overflowX:'auto',paddingBottom:'4px',marginBottom:'20px'}}>
+        {TABS.map(tb=>(
+          <button key={tb} onClick={()=>setTab(tb)} style={{padding:'7px 11px',borderRadius:'20px',border:`1px solid ${tab===tb?col.A+'60':col.BD}`,background:tab===tb?`${col.A}15`:col.CARD,color:tab===tb?col.A:col.M2,fontSize:'12px',fontWeight:tab===tb?'700':'400',cursor:'pointer',fontFamily:'inherit',whiteSpace:'nowrap',flexShrink:0}}>
+            {tlabel(tb)}
+          </button>
+        ))}
+      </div>
+
+      {loading&&<div style={{textAlign:'center',color:col.M,padding:'48px'}}>...</div>}
+
+      {!loading&&tab==='who'&&(
+        total===0
+        ? <Card c={col} style={{textAlign:'center',padding:'32px'}}>
+            <div style={{fontSize:'36px',marginBottom:'12px'}}>⏳</div>
+            <div style={{color:col.T,fontWeight:'500',marginBottom:'6px'}}>{t.noResponses}</div>
+            <div style={{color:col.M2,fontSize:'13px'}}>{t.noResponsesSub} <span style={{color:col.A,fontWeight:'700'}}>{plan.id}</span></div>
+          </Card>
+        : <>
+            {best&&counts[best]>0&&(
+              <div style={{background:`${col.A}12`,border:`1px solid ${col.A}35`,borderRadius:'14px',padding:'16px',marginBottom:'18px'}}>
+                <div style={{display:'flex',gap:'14px',alignItems:'center',marginBottom:isOrg&&!plan.confirmedDate?'14px':'0'}}>
+                  <div style={{fontSize:'28px'}}>⭐</div>
+                  <div>
+                    <div style={{fontSize:'11px',color:col.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>{t.bestOption}</div>
+                    <div style={{fontSize:'15px',color:col.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(best,lang)}</div>
+                    {plan.times?.[best]?.length>0&&<div style={{fontSize:'12px',color:col.M2}}>{plan.times[best].join(', ')} ({TIMEZONES.find(x=>x.tz===plan.timezone)?.label||''})</div>}
+                    <div style={{fontSize:'13px',color:col.M2}}>{counts[best]}/{total} {lang==='en'?'can make it':'pueden'}</div>
+                  </div>
+                </div>
+                {isOrg&&!plan.confirmedDate&&<Btn onClick={()=>confirmDate(best)} disabled={confirming} full sm c={col}>{confirming?t.confirming:t.confirmThis}</Btn>}
+              </div>
+            )}
+            <div style={{marginBottom:'20px'}}>
+              {plan.dates.map(d=>{
+                const n=counts[d];const pct=(n/mx)*100;const isBest=d===best&&n>0;const isConf=d===plan.confirmedDate;
+                return (
+                  <div key={d} style={{marginBottom:'12px'}}>
+                    <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'5px'}}>
+                      <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+                        <span style={{fontSize:'13px',color:isConf||isBest?col.A:col.T,fontWeight:isConf||isBest?'700':'400',textTransform:'capitalize'}}>{fmtShort(d,lang)}</span>
+                        {isConf&&<span style={{fontSize:'10px',background:col.A,color:'#0A0A0A',padding:'1px 7px',borderRadius:'20px',fontWeight:'800'}}>{t.confirmed}</span>}
+                        {!isConf&&isBest&&<span>⭐</span>}
+                      </div>
+                      <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+                        <span style={{fontSize:'13px',color:isBest?col.A:col.M2,fontWeight:isBest?'700':'400'}}>{n}/{total}</span>
+                        {isOrg&&!plan.confirmedDate&&d!==best&&n>0&&<button onClick={()=>confirmDate(d)} style={{background:'none',border:'none',color:col.M2,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',textDecoration:'underline'}}>{t.confirmSmall}</button>}
+                      </div>
+                    </div>
+                    <div style={{height:'7px',background:col.BD,borderRadius:'4px',overflow:'hidden'}}><div style={{height:'100%',width:`${pct}%`,background:isConf||isBest?col.A:col.CARD2,borderRadius:'4px',transition:'width .5s'}}/></div>
+                  </div>
+                );
+              })}
+            </div>
+            <Card c={col}>
+              <Lbl c={col}>{lang==='en'?'Detail per person':'Detalle por persona'}</Lbl>
+              {responses.map((r,i)=>(
+                <div key={i} style={{paddingBottom:'12px',marginBottom:'12px',borderBottom:i<responses.length-1?`1px solid ${col.BD}`:'none'}}>
+                  <div style={{fontSize:'14px',color:col.T,fontWeight:'600',marginBottom:'6px'}}>
+                    {r.name} {r.how&&<span style={{fontSize:'12px',color:col.M2,fontWeight:'400'}}>· {r.how}</span>}
+                  </div>
+                  <div style={{display:'flex',flexWrap:'wrap',gap:'5px'}}>
+                    {plan.dates.map(d=><span key={d} style={{fontSize:'11px',padding:'3px 9px',borderRadius:'20px',background:r.avail[d]?`${col.A}20`:col.CARD2,color:r.avail[d]?col.A:col.M,fontWeight:r.avail[d]?'700':'400',border:`1px solid ${r.avail[d]?col.A+'40':col.BD}`,textTransform:'capitalize'}}>{fmtShort(d,lang)}</span>)}
+                  </div>
+                </div>
+              ))}
+            </Card>
+          </>
+      )}
+
+      {!loading&&tab==='route'&&<>
+        {plan.stops.map((s,i)=>(
+          <div key={s.id||i} style={{display:'flex',gap:'12px',marginBottom:'10px'}}>
+            <div style={{display:'flex',flexDirection:'column',alignItems:'center'}}>
+              <div style={{width:'28px',height:'28px',borderRadius:'50%',background:`${col.A}20`,border:`1.5px solid ${col.A}60`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:'800',color:col.A,flexShrink:0}}>{i+1}</div>
+              {i<plan.stops.length-1&&<div style={{width:'2px',flex:1,background:col.BD,margin:'4px 0'}}/>}
+            </div>
+            <Card c={col} style={{flex:1,marginBottom:0}}>
+              <div style={{fontSize:'11px',color:col.M2,marginBottom:'4px'}}>{s.cat}</div>
+              <div style={{fontSize:'15px',color:col.T,fontWeight:'600',marginBottom:'4px'}}>{s.name||'—'}</div>
+              {s.address&&<div style={{fontSize:'12px',color:col.M2,marginBottom:'8px'}}>📍 {s.address}</div>}
+              <div style={{display:'flex',flexWrap:'wrap',gap:'6px',alignItems:'center'}}>
+                {parseFloat(s.cost)>0&&<Badge color={col.A}>{s.cost}€/pers.</Badge>}
+                {(s.address||s.name)&&<a href={`https://maps.google.com/?q=${encodeURIComponent((s.name||'')+(s.address?' '+s.address:''))}`} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:col.M2,textDecoration:'none',padding:'4px 10px',border:`1px solid ${col.BD}`,borderRadius:'8px'}}>Maps 🗺️</a>}
+                {s.link&&<a href={s.link.startsWith('http')?s.link:'https://'+s.link} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:col.A,textDecoration:'none',padding:'4px 10px',border:`1px solid ${col.A}40`,borderRadius:'8px'}}>{lang==='en'?'Book':'Reserva'} ↗</a>}
+                {s.stripeLink&&<a href={s.stripeLink.startsWith('http')?s.stripeLink:'https://'+s.stripeLink} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:'#fff',textDecoration:'none',padding:'4px 10px',borderRadius:'8px',background:'#635BFF',fontWeight:'600'}}>💳 {lang==='en'?'Pay':'Pagar'}</a>}
+              </div>
+            </Card>
+          </div>
+        ))}
+        {budget>0&&<>
+          <HR c={col}/>
+          <div style={{display:'flex',justifyContent:'space-between',padding:'14px 16px',background:`${col.A}0D`,border:`1px solid ${col.A}30`,borderRadius:'12px',marginBottom:'10px'}}><span style={{color:col.M2}}>{t.perPerson}</span><span style={{color:col.A,fontSize:'22px',fontWeight:'800'}}>{budget.toFixed(0)}€</span></div>
+          {giftPer>0&&<div style={{display:'flex',justifyContent:'space-between',padding:'12px 16px',background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'12px',marginBottom:'10px'}}><span style={{color:col.M2,fontSize:'14px'}}>+ {lang==='en'?'gift':'regalo'}</span><span style={{color:col.T,fontWeight:'600'}}>{giftPer.toFixed(0)}€/pers.</span></div>}
+          <div style={{display:'flex',justifyContent:'space-between',padding:'14px 16px',background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'12px'}}><span style={{color:col.T,fontWeight:'700'}}>{t.total}</span><span style={{color:col.A,fontSize:'18px',fontWeight:'800'}}>{(budget+giftPer).toFixed(0)}€</span></div>
+        </>}
+      </>}
+
+      {!loading&&tab==='extras'&&<>
+        {plan.gift
+          ? <Card c={col} accent style={{marginBottom:'16px'}}>
+              <div style={{fontSize:'11px',color:col.M2,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'12px'}}>{t.collectiveGift}</div>
+              <div style={{fontSize:'18px',color:col.T,fontWeight:'600',marginBottom:'8px'}}>{plan.gift.name||'—'}</div>
+              {plan.gift.price&&<>
+                <div style={{display:'flex',justifyContent:'space-between',marginBottom:'8px'}}><span style={{color:col.M2,fontSize:'14px'}}>{t.totalPrice}</span><span style={{color:col.A,fontWeight:'700',fontSize:'18px'}}>{plan.gift.price}€</span></div>
+                {total>0&&<div style={{display:'flex',justifyContent:'space-between',marginBottom:'12px'}}><span style={{color:col.M2,fontSize:'14px'}}>{t.perPersonOf} ({total})</span><span style={{color:col.A,fontWeight:'700'}}>{(parseFloat(plan.gift.price)/total).toFixed(2)}€</span></div>}
+              </>}
+              {plan.gift.link&&<a href={plan.gift.link.startsWith('http')?plan.gift.link:'https://'+plan.gift.link} target="_blank" rel="noreferrer" style={{display:'block',textAlign:'center',padding:'10px',background:`${col.A}20`,border:`1px solid ${col.A}50`,borderRadius:'10px',color:col.A,textDecoration:'none',fontSize:'14px',fontWeight:'600',marginBottom:'10px'}}>{t.seeGift}</a>}
+              {plan.gift.stripeLink
+                ? <a href={plan.gift.stripeLink.startsWith('http')?plan.gift.stripeLink:'https://'+plan.gift.stripeLink} target="_blank" rel="noreferrer" style={{display:'block',textAlign:'center',padding:'13px',background:'#635BFF',borderRadius:'12px',color:'#fff',textDecoration:'none',fontSize:'15px',fontWeight:'700'}}>{t.payStripe}</a>
+                : <div style={{textAlign:'center',padding:'10px',background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'10px',fontSize:'13px',color:col.M2}}>{t.payPending}</div>
+              }
+            </Card>
+          : <Card c={col} style={{textAlign:'center',padding:'28px'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>🎁</div><div style={{color:col.M2,fontSize:'14px'}}>{lang==='en'?'No gift in this plan':'No hay regalo en este plan'}</div></Card>
+        }
+        {plan.bring?.filter(b=>b.text||typeof b==='string').length>0&&(
+          <Card c={col}>
+            <Lbl c={col}>{t.bringList}</Lbl>
+            {plan.bring.filter(b=>b.text||typeof b==='string').map((b,i)=>{
+              const text = typeof b==='string'?b:b.text;
+              return <div key={i} style={{display:'flex',alignItems:'center',gap:'10px',padding:'10px 0',borderBottom:i<plan.bring.length-1?`1px solid ${col.BD}`:'none',fontSize:'14px',color:col.T}}><div style={{width:'7px',height:'7px',borderRadius:'50%',background:col.A,flexShrink:0}}/>{text}</div>;
+            })}
+          </Card>
+        )}
+      </>}
+
+      {!loading&&tab==='weather'&&<>
+        {best
+          ? <>
+              <div style={{fontSize:'14px',color:col.M2,marginBottom:'16px'}}>{t.forecastFor} <span style={{color:col.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate||best,lang)}</span>{plan.city?` — ${plan.city}`:''}</div>
+              {plan.city
+                ? <WeatherWidget city={plan.city} date={plan.confirmedDate||best} c={col} lang={lang}/>
+                : <Card c={col} style={{textAlign:'center',padding:'28px'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>🌤️</div><div style={{color:col.M2,fontSize:'14px'}}>{t.addCityForWeather}</div></Card>
+              }
+              {plan.city&&plan.dates.length>1&&<>
+                <HR c={col}/><Lbl c={col}>{t.allDates}</Lbl>
+                {plan.dates.map(d=>(
+                  <div key={d} style={{marginBottom:'14px'}}>
+                    <div style={{fontSize:'13px',color:col.M2,marginBottom:'6px',textTransform:'capitalize'}}>{fmtShort(d,lang)}{d===plan.confirmedDate?' 📌':''}</div>
+                    <WeatherWidget city={plan.city} date={d} c={col} lang={lang}/>
+                  </div>
+                ))}
+              </>}
+            </>
+          : <Card c={col} style={{textAlign:'center',padding:'28px'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>⏳</div><div style={{color:col.M2,fontSize:'14px'}}>{t.needResponse}</div></Card>
+        }
+      </>}
+
+      {!loading&&tab==='transport'&&<>
+        {fs
+          ? <>
+              <Card c={col} style={{marginBottom:'12px'}}>
+                <div style={{fontSize:'11px',color:col.M2,fontWeight:'700',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'8px'}}>{t.destination}</div>
+                <div style={{fontSize:'15px',color:col.T,fontWeight:'600'}}>{fs.name}</div>
+                {fs.address&&<div style={{fontSize:'13px',color:col.M2}}>{fs.address}</div>}
+              </Card>
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'20px'}}>
+                {[
+                  {name:'Google Maps',icon:'🗺️',url:`https://maps.google.com/?q=${encodeURIComponent((fs.name||'')+(fs.address?' '+fs.address:''))}`},
+                  {name:'Uber',icon:'⚫',url:'https://m.uber.com/'},
+                  {name:'Cabify',icon:'🟣',url:'https://cabify.com/'},
+                  {name:'Renfe',icon:'🚆',url:'https://www.renfe.com/'},
+                  {name:'Metro/EMT',icon:'🚇',url:'https://www.emt.madrid.es/'},
+                  {name:'Trainline',icon:'🎫',url:'https://www.thetrainline.com/'},
+                ].map(tx=>(
+                  <a key={tx.name} href={tx.url} target="_blank" rel="noreferrer" style={{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'8px',padding:'18px 10px',background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'14px',textDecoration:'none'}}>
+                    <div style={{fontSize:'28px'}}>{tx.icon}</div><div style={{fontSize:'13px',color:col.T,fontWeight:'600',textAlign:'center'}}>{tx.name}</div>
+                  </a>
+                ))}
+              </div>
+              {responses.filter(r=>r.how).length>0&&<>
+                <Lbl c={col}>{t.howEachGoes}</Lbl>
+                {responses.filter(r=>r.how).map((r,i)=>(
+                  <div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom:`1px solid ${col.BD}`,fontSize:'14px'}}>
+                    <span style={{color:col.T}}>{r.name}</span>
+                    <span style={{color:col.M2}}>{r.how}</span>
+                  </div>
+                ))}
+              </>}
+            </>
+          : <Card c={col} style={{textAlign:'center',padding:'28px'}}><div style={{fontSize:'32px',marginBottom:'10px'}}>📍</div><div style={{color:col.M2,fontSize:'14px'}}>{t.noStops}</div></Card>
+        }
+      </>}
+    </div>
+  );
+}
+
+// ══════════════════════════════════════════
+// APP
+// ══════════════════════════════════════════
+function App() {
+  const [theme, setTheme] = useState(() => ls.get('q_theme', null) || getSysTheme());
+  const [lang, setLang] = useState(() => ls.get('q_lang', 'es'));
+  const [screen, setScreen] = useState('home');
+  const [plan, setPlan] = useState(null);
+  const [isOrg, setIsOrg] = useState(false);
+  const c = useMemo(() => COLORS(theme), [theme]);
+
+  useEffect(() => { applyTheme(theme); }, [theme]);
+
+  const toggleTheme = () => setTheme(t => { const n = t==='dark'?'light':'dark'; applyTheme(n); ls.set('q_theme',n); return n; });
+  const toggleLang = () => setLang(l => { const n = l==='es'?'en':'es'; ls.set('q_lang',n); return n; });
+
+  // Restore state on reload
+  useEffect(() => {
+    const code = new URLSearchParams(location.search).get('code');
+    if (code) {
+      loadPlan(code).then(p => { if(p){ setPlan(p); setIsOrg(false); setScreen('respond'); } });
+      return;
+    }
+    const saved = ls.get('q_state', null);
+    if (saved?.planId) {
+      loadPlan(saved.planId).then(p => {
+        if (p) {
+          setPlan(p);
+          setIsOrg(saved.isOrg || false);
+          setScreen(saved.screen || 'home');
+        }
+      });
+    }
+  }, []);
+
+  const nav = (s, p=null, org=false) => {
+    setScreen(s);
+    if (p) setPlan(p);
+    setIsOrg(org);
+    if (s !== 'home') ls.set('q_state', { screen:s, planId:p?.id||plan?.id, isOrg:org });
+    else ls.set('q_state', {});
+  };
+
+  const handleJoin = async code => {
+    const p = await loadPlan(code);
+    if (p) { nav('respond', p, false); return true; }
+    return false;
+  };
+
+  const handleOpenFromProfile = async id => {
+    const p = await loadPlan(id);
+    if (p) {
+      const mine = getMyPlans().find(x => x.id===id);
+      nav('results', p, mine?.role==='organizer');
+    }
+  };
+
+  const t = LANG[lang];
+
+  return (
+    <div style={{minHeight:'100vh',background:c.BG,color:c.T,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
+      <div style={{borderBottom:`1px solid ${c.BD}`,padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:c.BG+'F0',backdropFilter:'blur(10px)',zIndex:10}}>
+        <div onClick={()=>nav('home')} style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'22px',cursor:'pointer',color:c.T,letterSpacing:'-.02em'}}>
+          queda<span style={{color:c.A}}>.</span>
+        </div>
+        <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
+          {plan&&!['home','create','profile'].includes(screen)&&<span style={{fontSize:'12px',color:c.M}}>código: <span style={{color:c.A,fontWeight:'800',letterSpacing:'.1em'}}>{plan.id}</span></span>}
+          <button onClick={toggleLang} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'5px 10px',cursor:'pointer',fontSize:'12px',fontWeight:'700',color:c.M2}}>{lang==='es'?'EN':'ES'}</button>
+          <button onClick={toggleTheme} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',fontSize:'15px'}}>{theme==='dark'?'☀️':'🌙'}</button>
+        </div>
+      </div>
+
+      {screen==='home'&&<HomeScreen onCreate={()=>nav('create')} onJoin={handleJoin} onProfile={()=>nav('profile')} c={c} lang={lang} toggleLang={toggleLang} toggleTheme={toggleTheme} theme={theme}/>}
+      {screen==='profile'&&<ProfileScreen onBack={()=>nav('home')} onOpen={handleOpenFromProfile} c={c} lang={lang}/>}
+      {screen==='create'&&<CreateScreen onBack={()=>nav('home')} onCreated={p=>nav('share',p,true)} c={c} lang={lang}/>}
+      {screen==='share'&&plan&&<ShareScreen plan={plan} onViewResults={()=>nav('results',plan,isOrg)} onBack={()=>nav('home')} c={c} lang={lang}/>}
+      {screen==='respond'&&plan&&<RespondScreen plan={plan} onBack={()=>nav('home')} onDone={()=>nav('results',plan,false)} c={c} lang={lang}/>}
+      {screen==='results'&&plan&&<ResultsScreen plan={plan} onBack={()=>nav(isOrg?'share':'home',plan,isOrg)} isOrg={isOrg} c={c} lang={lang}/>}
+    </div>
+  );
+}
+
 ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
