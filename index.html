@@ -313,7 +313,7 @@ function RespondScreen({plan,onBack,onDone,c}){
       <Lbl c={c}>¿Cómo llegas? (opcional)</Lbl>
       <select value={how} onChange={e=>setHow(e.target.value)} style={{background:c.CARD,border:`1px solid ${c.BD}`,color:how?c.T:c.M,fontSize:'14px',padding:'12px 14px',borderRadius:'10px',width:'100%',fontFamily:'inherit'}}>
         <option value=''>Selecciona...</option>
-        <option value='coche'>🚗 En coche</option><option value='transporte'>🚇 Transporte público</option><option value='uber'>🚕 Taxi/Uber</option><option value='andando'>🚶 Andando</option><option value='bici'>🚲 Bici/Patinete</option>
+        <option value='coche'>🚗 En coche</option><option value='moto'>🏍 En moto</option><option value='transporte'>🚇 Transporte público</option><option value='uber'>🚕 Taxi/Uber</option><option value='andando'>🚶 Andando</option><option value='bici'>🚲 Bici/Patinete</option>
       </select>
     </div>
     <Btn onClick={submit} disabled={!name.trim()||saving} full style={{padding:'15px',fontSize:'15px'}} c={c}>{saving?'Guardando...':'Confirmar disponibilidad →'}</Btn>
