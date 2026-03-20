@@ -1820,6 +1820,168 @@ function RespondScreenV2({plan, onBack, onDone, onCreateOwn, c, lang:appLang}){
     </div>
   );
 }
+// ══════════════════════════════════════════════════════
+// UX IMPROVEMENTS
+// ══════════════════════════════════════════════════════
+
+// ── Onboarding ─────────────────────────────────────────
+function OnboardingScreen({onDone, c, lang}){
+  const col=c; const isEs=lang==='es';
+  const[step,setStep]=useState(0);
+  const steps=[
+    { emoji:'👥', color:'#CDFF6C',
+      title: isEs?'Elige tu tipo de plan':'Choose your plan type',
+      desc: isEs?'Social para amigos, Íntimo para citas, Profesional para trabajo. Cada modo adapta la experiencia.':'Social for friends, Intimate for dates, Professional for work. Each mode adapts the experience.',
+    },
+    { emoji:'📅', color:'#60A5FA',
+      title: isEs?'Propón fechas y horarios':'Propose dates and times',
+      desc: isEs?'Selecciona varios días posibles. Cada invitado marca cuándo puede y el sistema encuentra la mejor opción.':'Select several possible days. Each guest marks when they can and the system finds the best option.',
+    },
+    { emoji:'🔗', color:'#F472B6',
+      title: isEs?'Comparte con un link o código':'Share with a link or code',
+      desc: isEs?'Manda el link por WhatsApp, Instagram o donde quieras. Sin apps adicionales, funciona en cualquier móvil.':'Send the link via WhatsApp, Instagram or anywhere. No extra apps, works on any phone.',
+    },
+    { emoji:'✅', color:'#CDFF6C',
+      title: isEs?'Confirma y listo':'Confirm and done',
+      desc: isEs?'Cuando tengas suficientes respuestas, confirma la fecha con un toque. El grupo recibe el aviso automáticamente.':'When you have enough responses, confirm the date with one tap. The group gets notified automatically.',
+    },
+  ];
+  const s=steps[step];
+  return(
+    <div style={{minHeight:'100vh',background:col.BG,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px'}}>
+      <div style={{maxWidth:'380px',width:'100%',textAlign:'center'}}>
+        {/* Progress dots */}
+        <div style={{display:'flex',justifyContent:'center',gap:'8px',marginBottom:'40px'}}>
+          {steps.map((_,i)=><div key={i} style={{width:i===step?24:8,height:8,borderRadius:'4px',background:i===step?s.color:col.BD,transition:'all .3s'}}/>)}
+        </div>
+
+        <div style={{fontSize:'72px',marginBottom:'24px'}}>{s.emoji}</div>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.T,marginBottom:'12px',lineHeight:1.1}}>{s.title}</h2>
+        <p style={{fontSize:'16px',color:col.M2,lineHeight:1.7,marginBottom:'48px'}}>{s.desc}</p>
+
+        <div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
+          <button onClick={()=>{if(step<steps.length-1)setStep(s=>s+1);else onDone();}}
+            style={{width:'100%',padding:'16px',borderRadius:'14px',border:'none',background:s.color,color:'#0A0A0A',fontSize:'16px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>
+            {step<steps.length-1?(isEs?'Siguiente →':'Next →'):(isEs?'¡Empezar!':'Get started!')}
+          </button>
+          {step<steps.length-1&&<button onClick={onDone}
+            style={{width:'100%',padding:'12px',borderRadius:'14px',border:'none',background:'transparent',color:col.M,fontSize:'14px',cursor:'pointer',fontFamily:'inherit'}}>
+            {isEs?'Saltar intro':'Skip intro'}
+          </button>}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Plan Preview (shown before respond screen) ─────────
+function PlanPreviewScreen({plan, onRespond, onBack, c, lang}){
+  const col=c; const isEs=lang==='es';
+  const mc=getModeConfig(plan.mode||'social',plan.lang||lang);
+  const modeColors={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
+  const modeColor=modeColors[plan.mode||'social']||col.A;
+  const budget=(plan.stops||[]).reduce((s,p)=>s+(parseFloat(p.cost)||0),0);
+
+  return(
+    <div style={{padding:'0',maxWidth:'420px',margin:'0 auto'}}>
+      {/* Hero banner */}
+      <div style={{background:`${modeColor}15`,borderBottom:`1px solid ${modeColor}30`,padding:'32px 24px 24px',textAlign:'center'}}>
+        <div style={{fontSize:'48px',marginBottom:'12px'}}>{plan.mode==='intimate'?'💘':plan.mode==='professional'?'💼':'🎉'}</div>
+        <ModeBadge mode={plan.mode||'social'} lang={plan.lang||lang} c={col}/>
+        <h1 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.T,margin:'12px 0 6px',lineHeight:1.1}}>{plan.name}</h1>
+        <div style={{fontSize:'14px',color:col.M2}}>{isEs?'Organizado por':'Organised by'} <span style={{color:col.T,fontWeight:'600'}}>{plan.organizer}</span></div>
+      </div>
+
+      <div style={{padding:'24px'}}>
+        {plan.desc&&<div style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'12px',padding:'14px',marginBottom:'16px',fontSize:'14px',color:col.T,lineHeight:1.7}}>{plan.desc}</div>}
+
+        {/* Dates preview */}
+        <div style={{marginBottom:'16px'}}>
+          <div style={{fontSize:'11px',color:col.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'8px'}}>📅 {isEs?'Fechas propuestas':'Proposed dates'}</div>
+          <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
+            {(plan.dates||[]).slice(0,4).map(d=>(
+              <span key={d} style={{fontSize:'12px',padding:'5px 12px',borderRadius:'20px',background:`${modeColor}15`,color:modeColor,border:`1px solid ${modeColor}30`,fontWeight:'600',textTransform:'capitalize'}}>{fmtShort(d,lang)}</span>
+            ))}
+            {(plan.dates||[]).length>4&&<span style={{fontSize:'12px',padding:'5px 12px',borderRadius:'20px',background:col.CARD2,color:col.M2}}>+{plan.dates.length-4} {isEs?'más':'more'}</span>}
+          </div>
+        </div>
+
+        {/* Stops preview */}
+        {plan.stops?.filter(s=>s.name).length>0&&<div style={{marginBottom:'16px'}}>
+          <div style={{fontSize:'11px',color:col.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'8px'}}>📍 {isEs?'La ruta':'The route'}</div>
+          {plan.stops.filter(s=>s.name).slice(0,3).map((s,i)=>(
+            <div key={i} style={{display:'flex',gap:'10px',alignItems:'center',marginBottom:'6px'}}>
+              <div style={{width:'20px',height:'20px',borderRadius:'50%',background:`${modeColor}20`,border:`1px solid ${modeColor}40`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'10px',fontWeight:'800',color:modeColor,flexShrink:0}}>{i+1}</div>
+              <div style={{fontSize:'13px',color:col.T}}>{s.cat?.split(' ')[0]} {s.name}{s.cost?<span style={{color:col.M2}}> · {s.cost}€</span>:null}</div>
+            </div>
+          ))}
+        </div>}
+
+        {budget>0&&<div style={{background:`${modeColor}0D`,border:`1px solid ${modeColor}25`,borderRadius:'10px',padding:'12px 14px',marginBottom:'16px',display:'flex',justifyContent:'space-between'}}>
+          <span style={{fontSize:'13px',color:col.M2}}>{isEs?'Presupuesto estimado':'Estimated budget'}</span>
+          <span style={{color:modeColor,fontWeight:'700'}}>{budget.toFixed(0)}€/persona</span>
+        </div>}
+
+        <button onClick={onRespond}
+          style={{width:'100%',padding:'16px',borderRadius:'14px',border:'none',background:modeColor,color:'#0A0A0A',fontSize:'16px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit',marginBottom:'10px'}}>
+          {mc.confirmLabel||'Confirmar disponibilidad →'}
+        </button>
+        <button onClick={onBack}
+          style={{width:'100%',padding:'12px',borderRadius:'14px',border:`1px solid ${col.BD}`,background:'transparent',color:col.M2,fontSize:'14px',cursor:'pointer',fontFamily:'inherit'}}>
+          {isEs?'Volver':'Back'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Countdown Banner ───────────────────────────────────
+function CountdownBanner({plan, c, lang}){
+  const col=c; const isEs=lang==='es';
+  if(!plan.confirmedDate) return null;
+  const confirmed=new Date(plan.confirmedDate+'T00:00:00');
+  const now=new Date(); now.setHours(0,0,0,0);
+  const diff=Math.round((confirmed-now)/(1000*60*60*24));
+  if(diff<0||diff>3) return null;
+  const modeColors={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
+  const modeColor=modeColors[plan.mode||'social']||col.A;
+  const msg=diff===0?(isEs?'¡Es hoy! 🎉':'It\'s today! 🎉'):diff===1?(isEs?'¡Mañana es el día! ⏰':'Tomorrow is the day! ⏰'):`${diff} ${isEs?'días':'days'} ⏳`;
+  return(
+    <div style={{background:`${modeColor}15`,border:`1px solid ${modeColor}40`,borderRadius:'12px',padding:'12px 16px',marginBottom:'14px',display:'flex',alignItems:'center',gap:'10px'}}>
+      <div style={{fontSize:'20px'}}>{diff===0?'🎉':diff===1?'⏰':'📅'}</div>
+      <div>
+        <div style={{fontSize:'13px',fontWeight:'700',color:modeColor}}>{msg}</div>
+        <div style={{fontSize:'12px',color:col.M2,textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate,lang)}</div>
+      </div>
+    </div>
+  );
+}
+
+// ── Live Response Counter (for Share screen) ───────────
+function LiveCounter({planId, c, lang}){
+  const col=c; const isEs=lang==='es';
+  const[count,setCount]=useState(null);
+  useEffect(()=>{
+    const fetch=async()=>{
+      const rs=await loadResps(planId);
+      setCount(rs.length);
+    };
+    fetch();
+    const interval=setInterval(fetch,15000);
+    return()=>clearInterval(interval);
+  },[planId]);
+  if(count===null) return null;
+  return(
+    <div style={{textAlign:'center',padding:'12px',background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'10px',marginBottom:'14px',fontSize:'14px',color:col.T}}>
+      {count===0
+        ?(isEs?'Nadie ha respondido todavía':'Nobody has responded yet')
+        :<><span style={{color:col.A,fontWeight:'800',fontSize:'20px'}}>{count}</span> {isEs?`persona${count!==1?'s':''} ha${count!==1?'n':''} respondido`:`person${count!==1?'s':''} ha${count!==1?'ve':''} responded`}</>
+      }
+    </div>
+  );
+}
+
+// ── Updated App with all UX improvements ──────────────
 function App(){
   const[theme,setTheme]=useState(()=>ls.get('q_theme',null)||getSysTheme());
   const[lang,setLang]=useState(()=>ls.get('q_lang','es'));
@@ -1828,15 +1990,29 @@ function App(){
   const[isOrg,setIsOrg]=useState(false);
   const[user,setUser]=useState(()=>ls.get('q_user',null));
   const[pendingMode,setPendingMode]=useState(null);
+  const[showOnboarding,setShowOnboarding]=useState(()=>!ls.get('q_onboarded',false));
   const c=useMemo(()=>C(theme),[theme]);
 
   useEffect(()=>{applyTheme(theme);},[theme]);
   const toggleTheme=()=>setTheme(t=>{const n=t==='dark'?'light':'dark';applyTheme(n);ls.set('q_theme',n);return n;});
   const toggleLang=()=>setLang(l=>{const n=l==='es'?'en':'es';ls.set('q_lang',n);return n;});
 
+  const doneOnboarding=()=>{ls.set('q_onboarded',true);setShowOnboarding(false);};
+
   useEffect(()=>{
     const code=new URLSearchParams(location.search).get('code');
-    if(code){loadPlan(code).then(p=>{if(p){setPlan(p);setIsOrg(false);setScreen('respond');}});return;}
+    if(code){
+      loadPlan(code).then(p=>{
+        if(p){
+          setPlan(p);setIsOrg(false);
+          // Go to preview first, not directly to respond
+          setScreen('preview');
+          // Mark onboarding done if coming from external link
+          ls.set('q_onboarded',true);setShowOnboarding(false);
+        }
+      });
+      return;
+    }
     const saved=ls.get('q_state',null);
     if(saved?.planId){loadPlan(saved.planId).then(p=>{if(p){setPlan(p);setIsOrg(saved.isOrg||false);setScreen(saved.screen||'home');}});}
   },[]);
@@ -1847,14 +2023,28 @@ function App(){
     else ls.set('q_state',{});
   };
 
-  const handleJoin=async code=>{const p=await loadPlan(code);if(p){nav('respond',p,false);return true;}return false;};
-  const handleOpenFromProfile=async id=>{const p=await loadPlan(id);if(p){const mine=getMyPlans().find(x=>x.id===id);nav('results',p,mine?.role==='organizer');}};
-  const handleDiscoverJoin=async id=>{const p=await loadPlan(id);if(p){nav('respond',p,false);}};
+  const handleJoin=async code=>{
+    const p=await loadPlan(code);
+    if(p){
+      setPlan(p);setIsOrg(false);
+      setScreen('preview');
+      ls.set('q_state',{screen:'preview',planId:p.id,isOrg:false});
+      return true;
+    }
+    return false;
+  };
+  const handleOpenFromProfile=async id=>{
+    const p=await loadPlan(id);
+    if(p){const mine=getMyPlans().find(x=>x.id===id);nav('results',p,mine?.role==='organizer');}
+  };
+  const handleDiscoverJoin=async id=>{const p=await loadPlan(id);if(p){setPlan(p);setIsOrg(false);setScreen('preview');}};
 
-  const t=T[lang];
-  const noNav=['home','create','select-mode','profile','discover'];
   const modeColors={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
   const planModeColor=plan?.mode?modeColors[plan.mode]||c.A:c.A;
+  const noNav=['home','create','select-mode','profile','discover','onboarding','preview'];
+
+  // Show onboarding for first-time users
+  if(showOnboarding) return <OnboardingScreen onDone={doneOnboarding} c={c} lang={lang}/>;
 
   return(<div style={{minHeight:'100vh',background:c.BG,color:c.T,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
     <div style={{borderBottom:`1px solid ${c.BD}`,padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:c.BG+'F0',backdropFilter:'blur(10px)',zIndex:10}}>
@@ -1862,9 +2052,7 @@ function App(){
         queda<span style={{color:c.A}}>.</span>
       </div>
       <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
-        {plan&&!noNav.includes(screen)&&<span style={{fontSize:'12px',color:c.M}}>
-          <span style={{color:planModeColor,fontWeight:'800',letterSpacing:'.1em'}}>{plan.id}</span>
-        </span>}
+        {plan&&!noNav.includes(screen)&&<span style={{color:planModeColor,fontWeight:'800',fontSize:'12px',letterSpacing:'.1em'}}>{plan.id}</span>}
         <button onClick={toggleLang} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'5px 8px',cursor:'pointer',fontSize:'16px'}}>
           {lang==='es'?'🇬🇧':'🇪🇸'}
         </button>
@@ -1874,24 +2062,180 @@ function App(){
       </div>
     </div>
 
-    {screen==='home'&&<HomeScreen
-      onCreate={()=>nav('select-mode')}
-      onJoin={handleJoin}
-      onProfile={()=>nav('profile')}
-      onDiscover={()=>nav('discover')}
-      c={c} lang={lang}
-    />}
-    {screen==='select-mode'&&<ModeSelectScreen
-      onSelect={mode=>{setPendingMode(mode);nav('create');}}
-      onBack={()=>nav('home')}
-      c={c} lang={lang}
-    />}
-    {screen==='profile'&&<ProfileScreen onBack={()=>nav('home')} onOpen={handleOpenFromProfile} c={c} lang={lang} user={user}/>}
+    {screen==='home'&&<HomeScreen onCreate={()=>nav('select-mode')} onJoin={handleJoin} onProfile={()=>nav('profile')} onDiscover={()=>nav('discover')} c={c} lang={lang}/>}
+    {screen==='select-mode'&&<ModeSelectScreen onSelect={mode=>{setPendingMode(mode);nav('create');}} onBack={()=>nav('home')} c={c} lang={lang}/>}
+    {screen==='profile'&&<ProfileScreenWithTime onBack={()=>nav('home')} onOpen={handleOpenFromProfile} c={c} lang={lang} user={user}/>}
     {screen==='discover'&&<DiscoverScreen onBack={()=>nav('home')} onJoin={handleDiscoverJoin} c={c} lang={lang}/>}
     {screen==='create'&&<CreateScreenV2 onBack={()=>nav('select-mode')} onCreated={p=>{nav('share',p,true);}} c={c} lang={lang} user={user} mode={pendingMode||'social'}/>}
-    {screen==='share'&&plan&&<ShareScreenV2 plan={plan} onViewResults={()=>nav('results',plan,isOrg)} onBack={()=>nav('home')} c={c} lang={lang}/>}
-    {screen==='respond'&&plan&&<RespondScreenV2 plan={plan} onBack={()=>nav('home')} onDone={()=>nav('results',plan,false)} onCreateOwn={()=>nav('select-mode')} c={c} lang={lang}/>}
-    {screen==='results'&&plan&&<ResultsScreen plan={plan} onBack={()=>nav(isOrg?'share':'home',plan,isOrg)} isOrg={isOrg} c={c} lang={lang}/>}
+    {screen==='share'&&plan&&<ShareScreenV2WithCounter plan={plan} onViewResults={()=>nav('results',plan,isOrg)} onBack={()=>nav('home')} c={c} lang={lang}/>}
+    {screen==='preview'&&plan&&<PlanPreviewScreen plan={plan} onRespond={()=>nav('respond',plan,false)} onBack={()=>nav('home')} c={c} lang={lang}/>}
+    {screen==='respond'&&plan&&<RespondScreenV2 plan={plan} onBack={()=>nav('preview',plan,false)} onDone={()=>nav('results',plan,false)} onCreateOwn={()=>nav('select-mode')} c={c} lang={lang}/>}
+    {screen==='results'&&plan&&<ResultsScreenWithCountdown plan={plan} onBack={()=>nav(isOrg?'share':'home',plan,isOrg)} isOrg={isOrg} c={c} lang={lang}/>}
+  </div>);
+}
+
+// ── ShareScreen with live counter ─────────────────────
+function ShareScreenV2WithCounter({plan, onViewResults, onBack, c, lang}){
+  const col=c; const t=T[lang];
+  const mc=getModeConfig(plan.mode||'social',lang);
+  const modeColors={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
+  const modeColor=modeColors[plan.mode||'social']||col.A;
+  const[copied,setCopied]=useState(false);
+  const url=location.href.split('?')[0]+'?code='+plan.id;
+  const copy=()=>{navigator.clipboard.writeText(url).catch(()=>{});setCopied(true);setTimeout(()=>setCopied(false),2000);};
+  const wa=()=>{const msg=mc.shareMsg(plan.name,url,plan.id);window.open('https://wa.me/?text='+encodeURIComponent(msg),'_blank');};
+  return(
+    <div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+      <Back onClick={onBack} c={col} label={t.back}/>
+      <div style={{textAlign:'center',marginBottom:'28px'}}>
+        <div style={{fontSize:'52px',marginBottom:'14px'}}>{plan.mode==='intimate'?'💘':plan.mode==='professional'?'💼':'🎉'}</div>
+        <h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.T,marginBottom:'8px'}}>{t.created}</h2>
+        <p style={{color:col.M2,fontSize:'14px'}}>{t.shareWith}</p>
+      </div>
+      <div style={{background:col.CARD,border:`1px solid ${modeColor}40`,borderRadius:'14px',padding:'20px',textAlign:'center',marginBottom:'14px'}}>
+        <div style={{marginBottom:'10px'}}><ModeBadge mode={plan.mode||'social'} lang={lang} c={col}/></div>
+        <div style={{fontSize:'11px',color:col.M,fontWeight:'700',letterSpacing:'.1em',textTransform:'uppercase',marginBottom:'14px'}}>{t.planCode}</div>
+        <div style={{fontFamily:'monospace',fontSize:'58px',fontWeight:'900',color:modeColor,letterSpacing:'.2em',lineHeight:1,marginBottom:'14px'}}>{plan.id}</div>
+        <div style={{fontSize:'15px',color:col.T,fontWeight:'600',marginBottom:'4px'}}>{plan.name}</div>
+        <div style={{fontSize:'13px',color:col.M2}}>@ {plan.organizer} · {plan.dates?.length||0} {lang==='es'?'fecha':'date'}{plan.dates?.length!==1?'s':''}</div>
+      </div>
+      <LiveCounter planId={plan.id} c={col} lang={lang}/>
+      <button onClick={wa} style={{width:'100%',padding:'15px',borderRadius:'12px',border:'none',background:'#25D366',color:'#fff',fontSize:'15px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit',marginBottom:'10px'}}>{t.shareWa}</button>
+      <Btn onClick={copy} full style={{marginBottom:'10px',padding:'14px'}} c={col}>{copied?t.copied:t.copyLink}</Btn>
+      <Btn onClick={onViewResults} v="secondary" full style={{padding:'14px'}} c={col}>{t.viewRes}</Btn>
+    </div>
+  );
+}
+
+// ── ResultsScreen with countdown banner ───────────────
+function ResultsScreenWithCountdown({plan:ip, onBack, isOrg, c, lang}){
+  const[plan,setPlan]=useState(ip);
+  // Inject countdown + simplified tabs into original ResultsScreen logic
+  // We wrap the original with countdown on top
+  return(
+    <div>
+      <div style={{padding:'24px 24px 0',maxWidth:'420px',margin:'0 auto'}}>
+        <CountdownBanner plan={plan} c={c} lang={lang}/>
+      </div>
+      <ResultsScreen plan={plan} onBack={onBack} isOrg={isOrg} c={c} lang={lang}/>
+    </div>
+  );
+}
+
+// ── Updated ProfileScreen with past/future separation ─
+// (ProfileScreen already updated above with delete/leave)
+// We patch it to show past vs upcoming
+const _origGetMyPlans = getMyPlans;
+function ProfileScreenWithTime({onBack, onOpen, c, lang, user}){
+  const col=c; const isEs=lang==='es';
+  const[plans,setPlans]=useState(getMyPlans());
+  const[confirm,setConfirm]=useState(null);
+  const[tab,setTab]=useState('upcoming');
+
+  const now=new Date(); now.setHours(0,0,0,0);
+
+  const removeFromList=(id)=>{
+    const updated=getMyPlans().filter(x=>x.id!==id);
+    ls.set('q_plans',updated);setPlans(updated);setConfirm(null);
+  };
+  const deletePlanFn=async(id)=>{
+    try{await db.from('responses').delete().eq('plan_id',id);await db.from('plans').delete().eq('id',id);}catch{}
+    removeFromList(id);
+  };
+
+  // We need to load plan dates to know if past/future
+  const[planDates,setPlanDates]=useState({});
+  useEffect(()=>{
+    plans.forEach(async p=>{
+      if(!planDates[p.id]){
+        const full=await loadPlan(p.id);
+        if(full){setPlanDates(prev=>({...prev,[p.id]:full.confirmedDate||full.dates?.[0]||null}));}
+      }
+    });
+  },[plans]);
+
+  const isPast=(id)=>{
+    const d=planDates[id];
+    if(!d) return false;
+    return new Date(d+'T23:59:59')<now;
+  };
+
+  const upcoming=plans.filter(p=>!isPast(p.id));
+  const past=plans.filter(p=>isPast(p.id));
+  const shown=tab==='upcoming'?upcoming:past;
+
+  const PlanCard=({p})=>{
+    const modeColors={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
+    const modeColor=modeColors[p.mode]||col.A;
+    const d=planDates[p.id];
+    return(
+      <div key={p.id} style={{background:col.CARD,border:`1px solid ${isPast(p.id)?col.BD:modeColor+'30'}`,borderRadius:'14px',padding:'16px',marginBottom:'10px',display:'flex',alignItems:'center',gap:'10px',opacity:isPast(p.id)?0.7:1}}>
+        <div onClick={()=>onOpen(p.id)} style={{flex:1,cursor:'pointer',minWidth:0}}>
+          <div style={{fontSize:'15px',color:col.T,fontWeight:'500',marginBottom:'4px',overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{p.name}</div>
+          <div style={{fontSize:'12px',color:col.M2,display:'flex',alignItems:'center',gap:'6px',flexWrap:'wrap'}}>
+            <span style={{color:modeColor,fontWeight:'700',letterSpacing:'.08em'}}>{p.id}</span>
+            <span>·</span>
+            <span>{p.role==='organizer'?T[lang].organizer:T[lang].guest}</span>
+            {d&&<><span>·</span><span style={{textTransform:'capitalize'}}>{fmtShort(d,lang)}</span></>}
+          </div>
+        </div>
+        <div style={{display:'flex',gap:'6px',flexShrink:0}}>
+          <button onClick={()=>onOpen(p.id)} style={{background:'none',border:`1px solid ${col.BD}`,borderRadius:'8px',padding:'7px 10px',color:col.M2,cursor:'pointer',fontSize:'13px',fontFamily:'inherit'}}>
+            {isEs?'Ver':'View'} →
+          </button>
+          <button onClick={e=>{e.stopPropagation();setConfirm(p);}}
+            style={{background:'none',border:'1px solid #ff444440',borderRadius:'8px',padding:'7px 10px',color:'#ff6666',cursor:'pointer',fontSize:'14px'}}>
+            {p.role==='organizer'?'🗑️':'👋'}
+          </button>
+        </div>
+      </div>
+    );
+  };
+
+  return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
+    <Back onClick={onBack} c={col} label={isEs?'← Volver':'← Back'}/>
+
+    {confirm&&<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.7)',zIndex:100,display:'flex',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={()=>setConfirm(null)}>
+      <div onClick={e=>e.stopPropagation()} style={{background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'16px',padding:'24px',width:'100%',maxWidth:'340px'}}>
+        <div style={{fontSize:'32px',textAlign:'center',marginBottom:'12px'}}>{confirm.role==='organizer'?'🗑️':'👋'}</div>
+        <div style={{fontSize:'16px',fontWeight:'700',color:col.T,textAlign:'center',marginBottom:'8px'}}>
+          {confirm.role==='organizer'?(isEs?'¿Eliminar este plan?':'Delete this plan?'):(isEs?'¿Salirte de este plan?':'Leave this plan?')}
+        </div>
+        <div style={{fontSize:'13px',color:col.M2,textAlign:'center',marginBottom:'20px',lineHeight:1.6}}>
+          {confirm.role==='organizer'?(isEs?'Se eliminará para todos. No se puede deshacer.':'Will delete for everyone. Cannot be undone.'):(isEs?'Solo se quitará de tu lista.':'Will only remove from your list.')}
+        </div>
+        <div style={{display:'flex',gap:'8px'}}>
+          <button onClick={()=>setConfirm(null)} style={{flex:1,padding:'12px',background:col.CARD2,border:`1px solid ${col.BD}`,borderRadius:'10px',color:col.T,cursor:'pointer',fontFamily:'inherit',fontWeight:'600',fontSize:'14px'}}>{isEs?'Cancelar':'Cancel'}</button>
+          <button onClick={()=>confirm.role==='organizer'?deletePlanFn(confirm.id):removeFromList(confirm.id)} style={{flex:1,padding:'12px',background:'#ff4444',border:'none',borderRadius:'10px',color:'#fff',cursor:'pointer',fontFamily:'inherit',fontWeight:'700',fontSize:'14px'}}>
+            {confirm.role==='organizer'?(isEs?'Eliminar':'Delete'):(isEs?'Salirme':'Leave')}
+          </button>
+        </div>
+      </div>
+    </div>}
+
+    {user&&<div style={{display:'flex',alignItems:'center',gap:'12px',padding:'14px 16px',background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'14px',marginBottom:'20px'}}>
+      <div style={{width:'44px',height:'44px',borderRadius:'50%',background:`${col.A}25`,border:`1px solid ${col.A}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'18px',fontWeight:'800',color:col.A,flexShrink:0}}>{user.name?.charAt(0).toUpperCase()||'?'}</div>
+      <div><div style={{fontSize:'15px',color:col.T,fontWeight:'600'}}>{user.name}</div><div style={{fontSize:'12px',color:col.M2}}>{user.email}</div></div>
+    </div>}
+
+    <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:col.T,marginBottom:'16px'}}>{T[lang].myPlansTitle}</h2>
+
+    <div style={{display:'flex',gap:'6px',marginBottom:'20px'}}>
+      {['upcoming','past'].map(tb=>(
+        <button key={tb} onClick={()=>setTab(tb)} style={{flex:1,padding:'10px',borderRadius:'10px',border:`1px solid ${tab===tb?col.A+'60':col.BD}`,background:tab===tb?`${col.A}15`:col.CARD,color:tab===tb?col.A:col.M2,fontSize:'13px',fontWeight:tab===tb?'700':'400',cursor:'pointer',fontFamily:'inherit'}}>
+          {tb==='upcoming'?(isEs?`📅 Próximos (${upcoming.length})`:`📅 Upcoming (${upcoming.length})`):(isEs?`✅ Pasados (${past.length})`:`✅ Past (${past.length})`)}
+        </button>
+      ))}
+    </div>
+
+    {shown.length===0
+      ?<div style={{textAlign:'center',padding:'32px',background:col.CARD,border:`1px solid ${col.BD}`,borderRadius:'14px'}}>
+        <div style={{fontSize:'36px',marginBottom:'12px'}}>{tab==='upcoming'?'📋':'✅'}</div>
+        <div style={{color:col.T,fontWeight:'500',marginBottom:'6px'}}>{tab==='upcoming'?(isEs?'No tienes planes próximos':'No upcoming plans'):(isEs?'No tienes planes pasados':'No past plans')}</div>
+        <div style={{color:col.M2,fontSize:'13px'}}>{tab==='upcoming'?(isEs?'Crea o únete a uno':'Create or join one'):(isEs?'Aquí aparecerán los planes completados':'Completed plans will appear here')}</div>
+      </div>
+      :shown.map(p=><PlanCard key={p.id} p={p}/>)
+    }
   </div>);
 }
 
