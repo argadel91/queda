@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
+<!-- queda v14.1 -->
 <meta charset="UTF-8"/><meta name="viewport" content="width=device-width,initial-scale=1.0"/>
 <title>queda.</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>📅</text></svg>"/>
@@ -359,7 +360,7 @@ const T={
     datesTitle:'Dates et horaires',datesSub:"Ville de l'événement et dates possibles.",
     cityLbl:"Ville de l'événement",cityPh:'Paris, Lyon, Montréal...',tzInfo:'Heure locale détectée :',
     selectDates:"Sélectionne des dates (jusqu'à 1 an)",times:'Horaires possibles',addTime:'Ajouter une heure',
-    routeTitle:'Itinéraire et budget',routeSub:"Ajoute les lieux dans l'ordre.",
+    routeTitle:"Itinéraire et budget",routeSub:"Ajoute les lieux dans l'ordre.",
     stop:'Étape',place:'Nom du lieu',addr:'Adresse',cost:'€ par personne',booking:'Lien de réservation',stripePh:'Lien Stripe (optionnel)',
     searchMap:'📍 Carte',addStop:'+ Étape',estPer:'Estimé par personne',extrasTitle:'Extras',
     dcLbl:'👗 Code vestimentaire',dcNote:'Note pour les invités (optionnel)...',dcCustomPh:'Ex : années 80, hawaïen...',dcNoneNote:'Pas de code vestimentaire. Demande si tu as un doute.',
@@ -383,9 +384,9 @@ const T={
     bestOpt:'Meilleure option',CONFIRMED:'CONFIRMÉ',confirmThis:'📌 Confirmer cette date',confirming:'Confirmation...',confirmSmall:'Confirmer',
     perPerson:'Par personne',totalLbl:'Total',giftSec:'🎁 Cadeau collectif',totalPrice:'Prix total',perOf:'Par personne',seeGift:'Voir le cadeau ↗',payTitle:'Payer ma part',
     noCity:'Ajoute une ville pour voir la météo',tooEarlyT:'Trop tôt pour le savoir',tooEarlyD:'jours avant les prévisions exactes',cityNotFound:'Ville introuvable.',
-    howEach:'Comment chacun y va ?',noStops:'Ajoute des étapes avec localisation pour voir les itinéraires',
+    howEach:'Comment chacun y va ?',noStops:"Ajoute des étapes avec localisation pour voir les itinéraires",
     dest:'Destination',transitNote:'Calculé en temps réel depuis ta position.',transitBtn:"Voir l'itinéraire sur Google Maps →",calcBtn:'Calculer depuis ma position',calcLoading:'Calcul en cours...',
-    myPlansT:'Mes plans',noPlansUp:'Aucun plan à venir',noPlansUpS:'Crée-en un ou rejoins-en un',noPlansPast:'Aucun plan passé',
+    myPlansT:'Mes plans',noPlansUp:'Aucun plan à venir',noPlansUpS:"Crée-en un ou rejoins-en un",noPlansPast:'Aucun plan passé',
     upcoming:'📅 À venir',pastTab:'✅ Passés',organizer:'Organisateur',guest:'Invité',
     confirmedDate:'📌 Date confirmée',notifyGrp:'Prévenir le groupe 💬',sendRem:'Rappel',remSent:'✓ Envoyé',
     makePublic:'🌍 Rendre public',isPublicLbl:'✓ Public',
@@ -397,9 +398,9 @@ const T={
     modeQ:'Quel type de plan ?',modeSubQ:"Choisis le mode et on adapte l'expérience.",
     modes:{social:{label:'👥 Social',sub:'Amis, famille et connaissances',color:'#CDFF6C',ex:['Dîner anniversaire','Week-end escapade','Soirée','Aventure 🐪'],vibe:'Décontracté et libre'},intimate:{label:'💘 Intime',sub:'Couple, rendez-vous et rencontres privées',color:'#F472B6',ex:['Premier rendez-vous','Surprise romantique','Anniversaire de couple','Rencontre privée'],vibe:'Privé et discret'},professional:{label:'💼 Professionnel',sub:'Travail, études et services',color:'#60A5FA',ex:['Réunion équipe','Dîner entreprise','Visite technique','Cours particulier'],vibe:'Formel et structuré'}},
     roles:['Organisateur','Client','Prestataire','Employé','Étudiant','Professeur'],yourRole:'Ton rôle',guestRole:'Ton rôle',
-    privateNote:'🔒 Tes infos ne sont pas partagées avant acceptation.',
-    onb:[{e:'👥',t:'Choisis ton type de plan',d:'Social pour les amis, Intime pour les rendez-vous, Professionnel pour le travail.'},{e:'📅',t:'Propose des dates et horaires',d:'Sélectionne la ville et plusieurs jours possibles. Chaque invité marque Oui, Peut-être ou Non.'},{e:'🔗',t:'Partage avec un lien',d:"Envoie le lien via WhatsApp. Pas d'appli supplémentaire.'},{e:'✅',t:'Confirme et c'est parti",d:'Une fois les réponses reçues, confirme la date. Le groupe est prévenu.'}],
-    skip:'Passer',next:'Suivant →',start:'C'est parti !',
+    privateNote:"🔒 Tes infos ne sont pas partagées avant acceptation.",
+    onb:[{e:'👥',t:'Choisis ton type de plan',d:'Social pour les amis, Intime pour les rendez-vous, Professionnel pour le travail.'},{e:'📅',t:'Propose des dates et horaires',d:'Sélectionne la ville et plusieurs jours possibles. Chaque invité marque Oui, Peut-être ou Non.'},{e:'🔗',t:'Partage avec un lien',d:"Envoie le lien via WhatsApp. Pas d'appli supplémentaire."},{e:'✅',t:'Confirme et préviens le groupe',d:'Une fois les réponses reçues, confirme la date. Le groupe est prévenu.'}],
+    skip:'Passer',next:'Suivant →',start:"C'est parti !",
     cat:['🍽️ Restaurant','🍸 Bar','🎉 Boîte de nuit','☕ Café','🎭 Activité','🏠 Maison','🍕 Informel','📍 Autre'],
   },
   de:{
@@ -467,12 +468,12 @@ const T={
     datesTitle:'Date e orari',datesSub:"Città dell'evento e date possibili.",
     cityLbl:"Città dell'evento",cityPh:'Roma, Milano, Napoli...',tzInfo:'Orario locale rilevato:',
     selectDates:'Seleziona date (fino a 1 anno)',times:'Orari possibili',addTime:'Aggiungi orario',
-    routeTitle:'Percorso e budget',routeSub:'Aggiungi i luoghi in ordine.',
+    routeTitle:'Percorso e budget',routeSub:"Aggiungi i luoghi in ordine.",
     stop:'Tappa',place:'Nome del luogo',addr:'Indirizzo',cost:'€ a persona',booking:'Link prenotazione',stripePh:'Link Stripe (opzionale)',
     searchMap:'📍 Mappa',addStop:'+ Tappa',estPer:'Stimato a persona',extrasTitle:'Extra',
     dcLbl:'👗 Dress code / Come vestirsi',dcNote:'Nota per gli invitati (opzionale)...',dcCustomPh:'Es: anni 80, hawaiano...',dcNoneNote:'Nessun dress code. Chiedi pure se hai dubbi.',
     dressCodes:[{k:'smart',l:'👔 Elegante'},{k:'casual',l:'👕 Casual'},{k:'beach',l:'🩱 Spiaggia'},{k:'sport',l:'🥾 Comodo'},{k:'party',l:'🪩 Festa'},{k:'business',l:'💼 Formale'},{k:'costume',l:'🎭 Costume'},{k:'custom',l:'✏️ Personalizzato'}],
-    gift:'🎁 C'è un regalo collettivo',giftSub:'Compleanno, matrimonio, addio...',giftName:'Nome del regalo',giftLink:'Link',giftPrice:'Prezzo totale €',payLink:'Link di pagamento',
+    gift:"🎁 C'è un regalo collettivo",giftSub:'Compleanno, matrimonio, addio...',giftName:'Nome del regalo',giftLink:'Link',giftPrice:'Prezzo totale €',payLink:'Link di pagamento',
     bring:'🎒 Cosa portare',addItem:'+ Aggiungi',newItem:'Es: vino, ombrello...',
     payData:'💳 Dati di pagamento',payNote:'Lascia vuoto quello che non usi.',
     bizumPh:'Numero di telefono',createBtn:'Crea piano 🎉',saving:'Salvataggio...',
@@ -506,7 +507,7 @@ const T={
     modes:{social:{label:'👥 Social',sub:'Amici, famiglia e conoscenti',color:'#CDFF6C',ex:['Cena di compleanno','Gita di fine settimana','Serata fuori','Avventura 🐪'],vibe:'Informale e libero'},intimate:{label:'💘 Intimo',sub:'Coppia, appuntamenti e incontri privati',color:'#F472B6',ex:['Primo appuntamento','Sorpresa romantica','Anniversario','Incontro privato'],vibe:'Privato e discreto'},professional:{label:'💼 Professionale',sub:'Lavoro, studi e servizi',color:'#60A5FA',ex:['Riunione team','Cena aziendale','Visita tecnica','Lezione privata'],vibe:'Formale e strutturato'}},
     roles:['Organizzatore','Cliente','Fornitore','Dipendente','Studente','Insegnante'],yourRole:'Il tuo ruolo',guestRole:'Il tuo ruolo',
     privateNote:"🔒 Le tue informazioni non vengono condivise fino all'accettazione.",
-    onb:[{e:'👥',t:'Scegli il tipo di piano',d:'Social per amici, Intimo per appuntamenti, Professionale per il lavoro.'},{e:'📅',t:'Proponi date e orari',d:'Seleziona la città e diversi giorni possibili. Ogni invitato segna Sì, Forse o No.'},{e:'🔗',t:'Condividi con un link',d:'Invia il link via WhatsApp. Nessuna app aggiuntiva necessaria.'},{e:'✅',t:'Conferma e fatto',d:"Quando hai le risposte conferma la data. Il gruppo riceve l'avviso."}],
+    onb:[{e:'👥',t:'Scegli il tipo di piano',d:'Social per amici, Intimo per appuntamenti, Professionale per il lavoro.'},{e:'📅',t:'Proponi date e orari',d:'Seleziona la città e diversi giorni possibili. Ogni invitato segna Sì, Forse o No.'},{e:'🔗',t:'Condividi con un link',d:'Invia il link via WhatsApp. Nessuna app aggiuntiva necessaria.'},{e:'✅',t:'Conferma e fatto',d:"Una volta le risposte ricevute, conferma la data. Il gruppo riceve l'avviso."}],
     skip:'Salta',next:'Avanti →',start:'Iniziamo!',
     cat:['🍽️ Ristorante','🍸 Bar','🎉 Discoteca','☕ Caffè','🎭 Attività','🏠 Casa','🍕 Informale','📍 Altro'],
   },
