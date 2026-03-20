@@ -70,6 +70,8 @@ const CITY_TZ={madrid:'Europe/Madrid',barcelona:'Europe/Madrid',sevilla:'Europe/
 const TZS=[{label:'Madrid/Barcelona (CET)',tz:'Europe/Madrid'},{label:'London (GMT)',tz:'Europe/London'},{label:'Paris/Berlin (CET)',tz:'Europe/Paris'},{label:'New York (ET)',tz:'America/New_York'},{label:'Los Angeles (PT)',tz:'America/Los_Angeles'},{label:'Mexico City',tz:'America/Mexico_City'},{label:'Buenos Aires',tz:'America/Argentina/Buenos_Aires'},{label:'Dubai',tz:'Asia/Dubai'},{label:'Tokyo (JST)',tz:'Asia/Tokyo'},{label:'Sydney',tz:'Australia/Sydney'}];
 const getCityTz=city=>{if(!city)return'Europe/Madrid';const l=city.toLowerCase();for(const[k,v]of Object.entries(CITY_TZ)){if(l.includes(k))return v;}return'Europe/Madrid';};
 const getTzLabel=tz=>{const f=TZS.find(x=>x.tz===tz);return f?f.label:tz;};
+const getGMTOffset=tz=>{try{const now=new Date();const fmt=new Intl.DateTimeFormat('en',{timeZone:tz,timeZoneName:'short'});const parts=fmt.formatToParts(now);const tzName=parts.find(p=>p.type==='timeZoneName')?.value||'';return tzName;}catch{return '';}};
+const getUserTz=()=>{try{return Intl.DateTimeFormat().resolvedOptions().timeZone;}catch{return null;}};
 
 // ─── WEATHER DATA ────────────────────────────────────
 const WX={0:'☀️',1:'🌤️',2:'⛅',3:'☁️',45:'🌫️',51:'🌦️',61:'🌧️',63:'🌧️',80:'🌧️',95:'⛈️'};
@@ -130,7 +132,12 @@ const CL={es:{italian:'🍝 Italiano',spanish:'🥘 Español',tapas:'🫒 Tapas'
 const fetchVenue=async(name,lat,lon)=>{if(!lat||!lon)return null;try{const q=`[out:json][timeout:8];node(around:150,${lat},${lon})[name];out body;`;const r=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:`data=${encodeURIComponent(q)}`}).then(x=>x.json());if(!r.elements?.length)return null;const nl=(name||'').toLowerCase();const m=r.elements.find(e=>e.tags?.name?.toLowerCase().includes(nl)||nl.includes((e.tags?.name||'').toLowerCase()))||r.elements[0];if(!m?.tags)return null;const t=m.tags;return{cuisine:t.cuisine?.split(';')[0]?.trim(),phone:t.phone||t['contact:phone'],website:t.website||t['contact:website'],hours:t.opening_hours,vegan:t['diet:vegan'],vegetarian:t['diet:vegetarian'],outdoor:t.outdoor_seating,wheelchair:t.wheelchair};}catch{return null;}};
 
 // ─── TRANSPORT ────────────────────────────────────────
-const TMODES=[{k:'foot',es:'🚶 A pie',en:'🚶 Walking'},{k:'bike',es:'🚲 Bici',en:'🚲 Cycling'},{k:'car',es:'🚗 Coche',en:'🚗 Car'},{k:'moto',es:'🏍️ Moto',en:'🏍️ Motorbike'}];
+const TMODES=[
+  {k:'foot',es:'🚶 A pie',en:'🚶 Walking',pt:'🚶 A pé',fr:'🚶 À pied',de:'🚶 Zu Fuß',it:'🚶 A piedi'},
+  {k:'bike',es:'🚲 Bici',en:'🚲 Cycling',pt:'🚲 Bicicleta',fr:'🚲 Vélo',de:'🚲 Fahrrad',it:'🚲 Bici'},
+  {k:'car',es:'🚗 Coche',en:'🚗 Car',pt:'🚗 Carro',fr:'🚗 Voiture',de:'🚗 Auto',it:'🚗 Auto'},
+  {k:'moto',es:'🏍️ Moto',en:'🏍️ Motorbike',pt:'🏍️ Mota',fr:'🏍️ Moto',de:'🏍️ Motorrad',it:'🏍️ Moto'},
+];
 const getOsrmTime=async(fLat,fLon,tLat,tLon,mode)=>{try{const m=mode==='foot'?'foot':mode==='bike'?'bike':'car';const r=await fetch(`https://router.project-osrm.org/route/v1/${m}/${fLon},${fLat};${tLon},${tLat}?overview=false`).then(x=>x.json());if(r.routes?.[0]){return{mins:Math.round(r.routes[0].duration/60),dist:(r.routes[0].distance/1000).toFixed(1)};}}catch{}return null;};
 
 // ─── TRANSLATIONS ────────────────────────────────────
@@ -284,7 +291,225 @@ const T={
     ],
     skip:'Skip',next:'Next →',start:'Get started!',
     cat:['🍽️ Restaurant','🍸 Bar','🎉 Club','☕ Café','🎭 Activity','🏠 Home','🍕 Casual','📍 Other'],
-  }
+  },
+  pt:{
+    tagline:'Planos sem caos.',sub:'Datas, horários, rota, look, tempo e pagamentos num só código.',
+    create:'Criar um plano →',myPlans:'👤 Os meus planos',discover:'🔍 Descobrir',orJoin:'ou junta-te',codePh:'Código do plano',go:'Ir',notFound:'Código não encontrado.',
+    howWorks:'Como funciona',s1:'Escolhe o tipo de plano',s2:'Adiciona datas e rota',s3:'Partilha — cada um marca quando pode',s4:'Confirma e avisa o grupo',
+    back:'← Voltar',cont:'Continuar →',
+    basics:'O básico',datesStep:'Datas',routeStep:'Rota',extrasStep:'Extras',
+    planName:'Nome do plano',desc:'Descrição (opcional)',descPh:'Detalhes, notas...',
+    yourName:'O teu nome',yourNamePh:'Como te chamas?',emailLbl:'O teu email (opcional)',emailPh:'tu@email.com',
+    datesTitle:'Datas e horários',datesSub:'Cidade do evento e datas possíveis.',
+    cityLbl:'Cidade do evento',cityPh:'Lisboa, Porto, São Paulo...',tzInfo:'Horário local detectado:',
+    selectDates:'Seleciona datas (até 1 ano)',times:'Horários possíveis',addTime:'Adicionar hora',
+    routeTitle:'Rota e orçamento',routeSub:'Adiciona os locais por ordem.',
+    stop:'Paragem',place:'Nome do local',addr:'Morada',cost:'€ por pessoa',booking:'Link reserva',stripePh:'Link Stripe (opcional)',
+    searchMap:'📍 Mapa',addStop:'+ Paragem',estPer:'Estimado por pessoa',
+    extrasTitle:'Extras',
+    dcLbl:'👗 Dress code / O que vestir',dcNote:'Nota para os convidados (opcional)...',dcCustomPh:'Ex: anos 80, havaiano...',dcNoneNote:'Sem dress code. Pergunta se tiveres dúvidas.',
+    dressCodes:[{k:'smart',l:'👔 Elegante'},{k:'casual',l:'👕 Casual'},{k:'beach',l:'🩱 Praia'},{k:'sport',l:'🥾 Confortável'},{k:'party',l:'🪩 Festa'},{k:'business',l:'💼 Formal'},{k:'costume',l:'🎭 Fantasia'},{k:'custom',l:'✏️ Personalizado'}],
+    gift:'🎁 Há presente coletivo',giftSub:'Aniversário, casamento, despedida...',giftName:'Nome do presente',giftLink:'Link',giftPrice:'Preço total €',payLink:'Link de pagamento',
+    bring:'🎒 O que levar',addItem:'+ Adicionar',newItem:'Ex: vinho, guarda-chuva...',
+    payData:'💳 Dados de pagamento',payNote:'Deixa vazio o que não usares.',
+    bizumPh:'Telefone',
+    createBtn:'Criar plano 🎉',saving:'A guardar...',
+    planCreated:'Plano criado!',shareWith:'Partilha com o teu grupo',planCode:'Código do plano',
+    shareWa:'Partilhar no WhatsApp 💬',copyLink:'Copiar link 🔗',copied:'✓ Copiado!',viewRes:'Ver resultados →',
+    previewBy:'Organizado por',previewDates:'Datas propostas',previewBudget:'Orçamento estimado',previewJoin:'Marcar disponibilidade →',editAvail:'Editar a minha resposta →',
+    yourAvail:'Quando podes?',avYes:'✅ Sim',avMaybe:'🤔 Talvez',avNo:'❌ Não posso',
+    maybeNote:'Adicionado a "talvez" — o organizador verá.',
+    bestTime:'A que horas preferes?',howGet:'Como chegas?',howOpt:'(opcional)',
+    car:'🚗 De carro',moto:'🏍️ De mota',transit:'🚇 Transporte público',taxi:'🚕 Táxi/Uber',walk:'🚶 A pé',bike:'🚲 Bicicleta',other:'✏️ Outro',otherPh:'Como chegas?',
+    commentLbl:'💬 Comentário (opcional)',commentPh:'Com muita vontade! / Chego um pouco tarde / ...',
+    saveAvail:'Guardar →',savedTitle:'Guardado!',savedSub:'A tua disponibilidade está registada. Podes editá-la quando quiseres.',
+    editingPrev:'A editar a tua resposta anterior',
+    viralQ:'Gostaste do queda.?',viralSub:'Cria o teu próprio plano grátis.',viralBtn:'Criar o meu plano →',
+    responses:'resposta',responsesP:'respostas',noResp:'Ninguém respondeu ainda',noRespSub:'Partilha o código',
+    bestOpt:'Melhor opção',CONFIRMED:'CONFIRMADO',confirmThis:'📌 Confirmar esta data',confirming:'A confirmar...',confirmSmall:'Confirmar',
+    perPerson:'Por pessoa',totalLbl:'Total',giftSec:'🎁 Presente coletivo',totalPrice:'Preço total',perOf:'Por pessoa',seeGift:'Ver presente ↗',payTitle:'Pagar a minha parte',
+    noCity:'Adiciona uma cidade para ver o tempo',tooEarlyT:'Ainda é cedo para saber',tooEarlyD:'dias para a previsão exata',cityNotFound:'Cidade não encontrada.',
+    howEach:'Como vai cada um?',noStops:'Adiciona paragens com localização para ver rotas',
+    dest:'Destino',transitNote:'Calculado em tempo real a partir da tua localização.',transitBtn:'Ver rota no Google Maps →',calcBtn:'Calcular desde a minha localização',calcLoading:'A calcular...',
+    myPlansT:'Os meus planos',noPlansUp:'Não tens planos próximos',noPlansUpS:'Cria ou junta-te a um',noPlansPast:'Não tens planos passados',
+    upcoming:'📅 Próximos',pastTab:'✅ Passados',organizer:'Organizador',guest:'Convidado',
+    confirmedDate:'📌 Data confirmada',notifyGrp:'Avisar o grupo 💬',sendRem:'Lembrete',remSent:'✓ Enviado',
+    makePublic:'🌍 Tornar público',isPublicLbl:'✓ Público',
+    delConfirm:'Eliminar este plano?',delWarn:'Será eliminado para todos. Não pode ser desfeito.',
+    leaveConfirm:'Sair do plano?',leaveWarn:'Apenas será removido da tua lista.',
+    cancel:'Cancelar',del:'Eliminar',leave:'Sair',comments:'Comentários',
+    tabs:{who:'👥 Quem',plan:'📍 Plano',dia:'🌤️ Dia',ir:'🚗 Ir',extras:'🎁 Extras'},
+    discoverT:'Descobrir',discoverS:'Planos públicos abertos a todos.',noPublic:'Não há planos públicos agora.',joinPlan:'Juntar-me →',
+    modeQ:'Que tipo de plano é?',modeSubQ:'Escolhe o modo e adaptamos a experiência.',
+    modes:{social:{label:'👥 Social',sub:'Amigos, família e conhecidos',color:'#CDFF6C',ex:['Jantar de aniversário','Escapadela de fim de semana','Saída noturna','Viagem 🐪'],vibe:'Informal e livre'},intimate:{label:'💘 Íntimo',sub:'Casal, encontros e momentos privados',color:'#F472B6',ex:['Primeiro encontro','Surpresa romântica','Aniversário de casal','Encontro privado'],vibe:'Privado e discreto'},professional:{label:'💼 Profissional',sub:'Trabalho, estudos e serviços',color:'#60A5FA',ex:['Reunião de equipa','Jantar de empresa','Visita técnica','Aula particular'],vibe:'Formal e estruturado'}},
+    roles:['Organizador','Cliente','Fornecedor','Funcionário','Aluno','Professor'],yourRole:'O teu papel',guestRole:'O teu papel',
+    privateNote:'🔒 A tua informação não é partilhada até aceitarem.',
+    onb:[{e:'👥',t:'Escolhe o tipo de plano',d:'Social para amigos, Íntimo para encontros, Profissional para trabalho.'},{e:'📅',t:'Propõe datas e horários',d:'Seleciona a cidade e vários dias possíveis. Cada convidado marca Sim, Talvez ou Não.'},{e:'🔗',t:'Partilha com um link',d:'Envia o link pelo WhatsApp. Sem apps adicionais.'},{e:'✅',t:'Confirma e pronto',d:'Quando tiveres respostas, confirma a data. O grupo recebe o aviso.'}],
+    skip:'Saltar',next:'Seguinte →',start:'Começar!',
+    cat:['🍽️ Restaurante','🍸 Bar','🎉 Discoteca','☕ Café','🎭 Atividade','🏠 Casa','🍕 Informal','📍 Outro'],
+  },
+  fr:{
+    tagline:'Des plans sans chaos.',sub:'Dates, horaires, itinéraire, tenue, météo et paiements en un code.',
+    create:'Créer un plan →',myPlans:'👤 Mes plans',discover:'🔍 Découvrir',orJoin:'ou rejoins',codePh:'Code du plan',go:'Ok',notFound:'Code introuvable.',
+    howWorks:'Comment ça marche',s1:'Choisis le type de plan',s2:'Ajoute les dates et l'itinéraire',s3:'Partage — chacun indique ses disponibilités',s4:'Confirme et préviens le groupe',
+    back:'← Retour',cont:'Continuer →',
+    basics:'Les bases',datesStep:'Dates',routeStep:'Itinéraire',extrasStep:'Extras',
+    planName:'Nom du plan',desc:'Description (optionnel)',descPh:'Détails, notes...',
+    yourName:'Ton prénom',yourNamePh:'Comment tu t'appelles ?',emailLbl:'Ton email (optionnel)',emailPh:'toi@email.com',
+    datesTitle:'Dates et horaires',datesSub:'Ville de l'événement et dates possibles.',
+    cityLbl:'Ville de l'événement',cityPh:'Paris, Lyon, Montréal...',tzInfo:'Heure locale détectée :',
+    selectDates:'Sélectionne des dates (jusqu'à 1 an)',times:'Horaires possibles',addTime:'Ajouter une heure',
+    routeTitle:'Itinéraire et budget',routeSub:'Ajoute les lieux dans l'ordre.',
+    stop:'Étape',place:'Nom du lieu',addr:'Adresse',cost:'€ par personne',booking:'Lien de réservation',stripePh:'Lien Stripe (optionnel)',
+    searchMap:'📍 Carte',addStop:'+ Étape',estPer:'Estimé par personne',extrasTitle:'Extras',
+    dcLbl:'👗 Code vestimentaire',dcNote:'Note pour les invités (optionnel)...',dcCustomPh:'Ex : années 80, hawaïen...',dcNoneNote:'Pas de code vestimentaire. Demande si tu as un doute.',
+    dressCodes:[{k:'smart',l:'👔 Élégant'},{k:'casual',l:'👕 Casual'},{k:'beach',l:'🩱 Plage'},{k:'sport',l:'🥾 Confortable'},{k:'party',l:'🪩 Soirée'},{k:'business',l:'💼 Formel'},{k:'costume',l:'🎭 Déguisement'},{k:'custom',l:'✏️ Personnalisé'}],
+    gift:'🎁 Il y a un cadeau collectif',giftSub:'Anniversaire, mariage, départ...',giftName:'Nom du cadeau',giftLink:'Lien',giftPrice:'Prix total €',payLink:'Lien de paiement',
+    bring:'🎒 Quoi apporter',addItem:'+ Ajouter',newItem:'Ex : vin, parapluie...',
+    payData:'💳 Infos de paiement',payNote:'Laisse vide ce que tu n'utilises pas.',
+    bizumPh:'Téléphone',createBtn:'Créer le plan 🎉',saving:'Enregistrement...',
+    planCreated:'Plan créé !',shareWith:'Partage avec ton groupe',planCode:'Code du plan',
+    shareWa:'Partager sur WhatsApp 💬',copyLink:'Copier le lien 🔗',copied:'✓ Copié !',viewRes:'Voir les résultats →',
+    previewBy:'Organisé par',previewDates:'Dates proposées',previewBudget:'Budget estimé',previewJoin:'Indiquer mes disponibilités →',editAvail:'Modifier ma réponse →',
+    yourAvail:'Quand es-tu disponible ?',avYes:'✅ Oui',avMaybe:'🤔 Peut-être',avNo:'❌ Je ne peux pas',
+    maybeNote:'Ajouté à "peut-être" — l'organisateur le verra.',
+    bestTime:'À quelle heure de préférence ?',howGet:'Comment tu y vas ?',howOpt:'(optionnel)',
+    car:'🚗 En voiture',moto:'🏍️ En moto',transit:'🚇 Transports en commun',taxi:'🚕 Taxi/Uber',walk:'🚶 À pied',bike:'🚲 Vélo',other:'✏️ Autre',otherPh:'Comment tu y vas ?',
+    commentLbl:'💬 Commentaire (optionnel)',commentPh:'Hâte d'y être ! / J'arriverai un peu tard / ...',
+    saveAvail:'Enregistrer →',savedTitle:'Enregistré !',savedSub:'Ta disponibilité est enregistrée. Tu peux la modifier quand tu veux.',
+    editingPrev:'Tu modifies ta réponse précédente',
+    viralQ:'Tu as aimé queda. ?',viralSub:'Crée ton propre plan gratuitement.',viralBtn:'Créer mon plan →',
+    responses:'réponse',responsesP:'réponses',noResp:'Personne n'a répondu pour l'instant',noRespSub:'Partage le code',
+    bestOpt:'Meilleure option',CONFIRMED:'CONFIRMÉ',confirmThis:'📌 Confirmer cette date',confirming:'Confirmation...',confirmSmall:'Confirmer',
+    perPerson:'Par personne',totalLbl:'Total',giftSec:'🎁 Cadeau collectif',totalPrice:'Prix total',perOf:'Par personne',seeGift:'Voir le cadeau ↗',payTitle:'Payer ma part',
+    noCity:'Ajoute une ville pour voir la météo',tooEarlyT:'Trop tôt pour le savoir',tooEarlyD:'jours avant les prévisions exactes',cityNotFound:'Ville introuvable.',
+    howEach:'Comment chacun y va ?',noStops:'Ajoute des étapes avec localisation pour voir les itinéraires',
+    dest:'Destination',transitNote:'Calculé en temps réel depuis ta position.',transitBtn:'Voir l'itinéraire sur Google Maps →',calcBtn:'Calculer depuis ma position',calcLoading:'Calcul en cours...',
+    myPlansT:'Mes plans',noPlansUp:'Aucun plan à venir',noPlansUpS:'Crée-en un ou rejoins-en un',noPlansPast:'Aucun plan passé',
+    upcoming:'📅 À venir',pastTab:'✅ Passés',organizer:'Organisateur',guest:'Invité',
+    confirmedDate:'📌 Date confirmée',notifyGrp:'Prévenir le groupe 💬',sendRem:'Rappel',remSent:'✓ Envoyé',
+    makePublic:'🌍 Rendre public',isPublicLbl:'✓ Public',
+    delConfirm:'Supprimer ce plan ?',delWarn:'Il sera supprimé pour tout le monde. Impossible d'annuler.',
+    leaveConfirm:'Quitter le plan ?',leaveWarn:'Il sera simplement retiré de ta liste.',
+    cancel:'Annuler',del:'Supprimer',leave:'Quitter',comments:'Commentaires',
+    tabs:{who:'👥 Qui',plan:'📍 Plan',dia:'🌤️ Jour',ir:'🚗 Y aller',extras:'🎁 Extras'},
+    discoverT:'Découvrir',discoverS:'Plans publics ouverts à tous.',noPublic:'Aucun plan public en ce moment.',joinPlan:'Rejoindre →',
+    modeQ:'Quel type de plan ?',modeSubQ:'Choisis le mode et on adapte l'expérience.',
+    modes:{social:{label:'👥 Social',sub:'Amis, famille et connaissances',color:'#CDFF6C',ex:['Dîner anniversaire','Week-end escapade','Soirée','Aventure 🐪'],vibe:'Décontracté et libre'},intimate:{label:'💘 Intime',sub:'Couple, rendez-vous et rencontres privées',color:'#F472B6',ex:['Premier rendez-vous','Surprise romantique','Anniversaire de couple','Rencontre privée'],vibe:'Privé et discret'},professional:{label:'💼 Professionnel',sub:'Travail, études et services',color:'#60A5FA',ex:['Réunion équipe','Dîner entreprise','Visite technique','Cours particulier'],vibe:'Formel et structuré'}},
+    roles:['Organisateur','Client','Prestataire','Employé','Étudiant','Professeur'],yourRole:'Ton rôle',guestRole:'Ton rôle',
+    privateNote:'🔒 Tes infos ne sont pas partagées avant acceptation.',
+    onb:[{e:'👥',t:'Choisis ton type de plan',d:'Social pour les amis, Intime pour les rendez-vous, Professionnel pour le travail.'},{e:'📅',t:'Propose des dates et horaires',d:'Sélectionne la ville et plusieurs jours possibles. Chaque invité marque Oui, Peut-être ou Non.'},{e:'🔗',t:'Partage avec un lien',d:'Envoie le lien via WhatsApp. Pas d'appli supplémentaire.'},{e:'✅',t:'Confirme et c'est parti',d:'Une fois les réponses reçues, confirme la date. Le groupe est prévenu.'}],
+    skip:'Passer',next:'Suivant →',start:'C'est parti !',
+    cat:['🍽️ Restaurant','🍸 Bar','🎉 Boîte de nuit','☕ Café','🎭 Activité','🏠 Maison','🍕 Informel','📍 Autre'],
+  },
+  de:{
+    tagline:'Pläne ohne Chaos.',sub:'Termine, Zeiten, Route, Outfit, Wetter und Zahlungen in einem Code.',
+    create:'Plan erstellen →',myPlans:'👤 Meine Pläne',discover:'🔍 Entdecken',orJoin:'oder beitreten',codePh:'Plan-Code',go:'Los',notFound:'Code nicht gefunden.',
+    howWorks:'So funktioniert es',s1:'Wähle den Plantyp',s2:'Füge Termine und Route hinzu',s3:'Teile — jeder markiert seine Verfügbarkeit',s4:'Bestätige und benachrichtige die Gruppe',
+    back:'← Zurück',cont:'Weiter →',
+    basics:'Grundlagen',datesStep:'Termine',routeStep:'Route',extrasStep:'Extras',
+    planName:'Planname',desc:'Beschreibung (optional)',descPh:'Details, Notizen...',
+    yourName:'Dein Name',yourNamePh:'Wie heißt du?',emailLbl:'Deine E-Mail (optional)',emailPh:'du@email.com',
+    datesTitle:'Termine und Zeiten',datesSub:'Veranstaltungsort und mögliche Termine.',
+    cityLbl:'Veranstaltungsort',cityPh:'Berlin, München, Wien...',tzInfo:'Erkannte Ortszeit:',
+    selectDates:'Termine auswählen (bis zu 1 Jahr)',times:'Mögliche Zeiten',addTime:'Zeit hinzufügen',
+    routeTitle:'Route und Budget',routeSub:'Füge die Orte der Reihe nach hinzu.',
+    stop:'Station',place:'Ortsname',addr:'Adresse',cost:'€ pro Person',booking:'Reservierungs-Link',stripePh:'Stripe-Link (optional)',
+    searchMap:'📍 Karte',addStop:'+ Station',estPer:'Geschätzt pro Person',extrasTitle:'Extras',
+    dcLbl:'👗 Dresscode',dcNote:'Hinweis für Gäste (optional)...',dcCustomPh:'z.B. 80er Jahre, Hawaii...',dcNoneNote:'Kein Dresscode. Frag nach, wenn du unsicher bist.',
+    dressCodes:[{k:'smart',l:'👔 Elegant'},{k:'casual',l:'👕 Lässig'},{k:'beach',l:'🩱 Strand'},{k:'sport',l:'🥾 Sportlich'},{k:'party',l:'🪩 Party'},{k:'business',l:'💼 Formell'},{k:'costume',l:'🎭 Kostüm'},{k:'custom',l:'✏️ Eigener'}],
+    gift:'🎁 Es gibt ein Gruppengeschenk',giftSub:'Geburtstag, Hochzeit, Abschied...',giftName:'Geschenkname',giftLink:'Link',giftPrice:'Gesamtpreis €',payLink:'Zahlungslink',
+    bring:'🎒 Was mitbringen',addItem:'+ Hinzufügen',newItem:'z.B. Wein, Regenschirm...',
+    payData:'💳 Zahlungsdaten',payNote:'Lass leer, was du nicht nutzt.',
+    bizumPh:'Telefonnummer',createBtn:'Plan erstellen 🎉',saving:'Wird gespeichert...',
+    planCreated:'Plan erstellt!',shareWith:'Teile mit deiner Gruppe',planCode:'Plan-Code',
+    shareWa:'Per WhatsApp teilen 💬',copyLink:'Link kopieren 🔗',copied:'✓ Kopiert!',viewRes:'Ergebnisse anzeigen →',
+    previewBy:'Organisiert von',previewDates:'Vorgeschlagene Termine',previewBudget:'Geschätztes Budget',previewJoin:'Verfügbarkeit angeben →',editAvail:'Antwort bearbeiten →',
+    yourAvail:'Wann kannst du?',avYes:'✅ Ja',avMaybe:'🤔 Vielleicht',avNo:'❌ Kann nicht',
+    maybeNote:'Als "Vielleicht" gespeichert — der Organisator sieht es.',
+    bestTime:'Welche Uhrzeit passt besser?',howGet:'Wie kommst du hin?',howOpt:'(optional)',
+    car:'🚗 Mit dem Auto',moto:'🏍️ Mit dem Motorrad',transit:'🚇 Öffentliche Verkehrsmittel',taxi:'🚕 Taxi/Uber',walk:'🚶 Zu Fuß',bike:'🚲 Fahrrad',other:'✏️ Andere',otherPh:'Wie kommst du hin?',
+    commentLbl:'💬 Kommentar (optional)',commentPh:'Freue mich schon! / Komme etwas später / ...',
+    saveAvail:'Speichern →',savedTitle:'Gespeichert!',savedSub:'Deine Verfügbarkeit ist gespeichert. Du kannst sie jederzeit bearbeiten.',
+    editingPrev:'Du bearbeitest deine vorherige Antwort',
+    viralQ:'Hat dir queda. gefallen?',viralSub:'Erstelle deinen eigenen Plan kostenlos.',viralBtn:'Meinen Plan erstellen →',
+    responses:'Antwort',responsesP:'Antworten',noResp:'Noch niemand hat geantwortet',noRespSub:'Teile den Code',
+    bestOpt:'Beste Option',CONFIRMED:'BESTÄTIGT',confirmThis:'📌 Diesen Termin bestätigen',confirming:'Wird bestätigt...',confirmSmall:'Bestätigen',
+    perPerson:'Pro Person',totalLbl:'Gesamt',giftSec:'🎁 Gruppengeschenk',totalPrice:'Gesamtpreis',perOf:'Pro Person',seeGift:'Geschenk ansehen ↗',payTitle:'Meinen Anteil zahlen',
+    noCity:'Füge eine Stadt hinzu um das Wetter zu sehen',tooEarlyT:'Noch zu früh um es zu wissen',tooEarlyD:'Tage bis zur genauen Vorhersage',cityNotFound:'Stadt nicht gefunden.',
+    howEach:'Wie kommt jeder hin?',noStops:'Füge Stationen mit Standort hinzu um Routen zu sehen',
+    dest:'Ziel',transitNote:'In Echtzeit von deinem Standort berechnet.',transitBtn:'Route in Google Maps →',calcBtn:'Von meinem Standort berechnen',calcLoading:'Wird berechnet...',
+    myPlansT:'Meine Pläne',noPlansUp:'Keine bevorstehenden Pläne',noPlansUpS:'Erstelle einen oder tritt einem bei',noPlansPast:'Keine vergangenen Pläne',
+    upcoming:'📅 Bevorstehend',pastTab:'✅ Vergangen',organizer:'Organisator',guest:'Gast',
+    confirmedDate:'📌 Bestätigter Termin',notifyGrp:'Gruppe benachrichtigen 💬',sendRem:'Erinnerung',remSent:'✓ Gesendet',
+    makePublic:'🌍 Öffentlich machen',isPublicLbl:'✓ Öffentlich',
+    delConfirm:'Diesen Plan löschen?',delWarn:'Er wird für alle gelöscht. Kann nicht rückgängig gemacht werden.',
+    leaveConfirm:'Plan verlassen?',leaveWarn:'Er wird nur von deiner Liste entfernt.',
+    cancel:'Abbrechen',del:'Löschen',leave:'Verlassen',comments:'Kommentare',
+    tabs:{who:'👥 Wer',plan:'📍 Plan',dia:'🌤️ Tag',ir:'🚗 Anfahrt',extras:'🎁 Extras'},
+    discoverT:'Entdecken',discoverS:'Öffentliche Pläne für alle.',noPublic:'Gerade keine öffentlichen Pläne.',joinPlan:'Beitreten →',
+    modeQ:'Welche Art von Plan?',modeSubQ:'Wähle den Modus und wir passen die Erfahrung an.',
+    modes:{social:{label:'👥 Sozial',sub:'Freunde, Familie und Bekannte',color:'#CDFF6C',ex:['Geburtstagsessen','Wochenendtrip','Ausgehabend','Abenteuer 🐪'],vibe:'Locker und frei'},intimate:{label:'💘 Intim',sub:'Partner, Dates und private Treffen',color:'#F472B6',ex:['Erstes Date','Romantische Überraschung','Jahrestag','Privates Treffen'],vibe:'Privat und diskret'},professional:{label:'💼 Professionell',sub:'Arbeit, Studium und Dienstleistungen',color:'#60A5FA',ex:['Teammeeting','Firmendinner','Technischer Besuch','Einzelunterricht'],vibe:'Formal und strukturiert'}},
+    roles:['Organisator','Kunde','Anbieter','Mitarbeiter','Schüler','Lehrer'],yourRole:'Deine Rolle',guestRole:'Deine Rolle',
+    privateNote:'🔒 Deine Daten werden erst nach Annahme geteilt.',
+    onb:[{e:'👥',t:'Wähle deinen Plantyp',d:'Sozial für Freunde, Intim für Dates, Professionell für die Arbeit.'},{e:'📅',t:'Schlage Termine vor',d:'Wähle die Stadt und mehrere mögliche Tage. Jeder Gast markiert Ja, Vielleicht oder Nein.'},{e:'🔗',t:'Per Link teilen',d:'Sende den Link per WhatsApp. Keine zusätzlichen Apps nötig.'},{e:'✅',t:'Bestätigen und fertig',d:'Wenn du Antworten hast bestätige den Termin. Die Gruppe wird benachrichtigt.'}],
+    skip:'Überspringen',next:'Weiter →',start:'Los geht es!',
+    cat:['🍽️ Restaurant','🍸 Bar','🎉 Club','☕ Café','🎭 Aktivität','🏠 Zuhause','🍕 Casual','📍 Andere'],
+  },
+  it:{
+    tagline:'Piani senza caos.',sub:'Date, orari, percorso, outfit, meteo e pagamenti in un codice.',
+    create:'Crea un piano →',myPlans:'👤 I miei piani',discover:'🔍 Scopri',orJoin:'o unisciti',codePh:'Codice del piano',go:'Vai',notFound:'Codice non trovato.',
+    howWorks:'Come funziona',s1:'Scegli il tipo di piano',s2:'Aggiungi date e percorso',s3:'Condividi — ognuno segna quando può',s4:'Conferma e avvisa il gruppo',
+    back:'← Indietro',cont:'Continua →',
+    basics:'Le basi',datesStep:'Date',routeStep:'Percorso',extrasStep:'Extra',
+    planName:'Nome del piano',desc:'Descrizione (opzionale)',descPh:'Dettagli, note...',
+    yourName:'Il tuo nome',yourNamePh:'Come ti chiami?',emailLbl:'La tua email (opzionale)',emailPh:'tu@email.com',
+    datesTitle:'Date e orari',datesSub:'Città dell'evento e date possibili.',
+    cityLbl:'Città dell'evento',cityPh:'Roma, Milano, Napoli...',tzInfo:'Orario locale rilevato:',
+    selectDates:'Seleziona date (fino a 1 anno)',times:'Orari possibili',addTime:'Aggiungi orario',
+    routeTitle:'Percorso e budget',routeSub:'Aggiungi i luoghi in ordine.',
+    stop:'Tappa',place:'Nome del luogo',addr:'Indirizzo',cost:'€ a persona',booking:'Link prenotazione',stripePh:'Link Stripe (opzionale)',
+    searchMap:'📍 Mappa',addStop:'+ Tappa',estPer:'Stimato a persona',extrasTitle:'Extra',
+    dcLbl:'👗 Dress code / Come vestirsi',dcNote:'Nota per gli invitati (opzionale)...',dcCustomPh:'Es: anni 80, hawaiano...',dcNoneNote:'Nessun dress code. Chiedi pure se hai dubbi.',
+    dressCodes:[{k:'smart',l:'👔 Elegante'},{k:'casual',l:'👕 Casual'},{k:'beach',l:'🩱 Spiaggia'},{k:'sport',l:'🥾 Comodo'},{k:'party',l:'🪩 Festa'},{k:'business',l:'💼 Formale'},{k:'costume',l:'🎭 Costume'},{k:'custom',l:'✏️ Personalizzato'}],
+    gift:'🎁 C'è un regalo collettivo',giftSub:'Compleanno, matrimonio, addio...',giftName:'Nome del regalo',giftLink:'Link',giftPrice:'Prezzo totale €',payLink:'Link di pagamento',
+    bring:'🎒 Cosa portare',addItem:'+ Aggiungi',newItem:'Es: vino, ombrello...',
+    payData:'💳 Dati di pagamento',payNote:'Lascia vuoto quello che non usi.',
+    bizumPh:'Numero di telefono',createBtn:'Crea piano 🎉',saving:'Salvataggio...',
+    planCreated:'Piano creato!',shareWith:'Condividi con il tuo gruppo',planCode:'Codice del piano',
+    shareWa:'Condividi su WhatsApp 💬',copyLink:'Copia link 🔗',copied:'✓ Copiato!',viewRes:'Vedi risultati →',
+    previewBy:'Organizzato da',previewDates:'Date proposte',previewBudget:'Budget stimato',previewJoin:'Indica la tua disponibilità →',editAvail:'Modifica la mia risposta →',
+    yourAvail:'Quando puoi?',avYes:'✅ Sì',avMaybe:'🤔 Forse',avNo:'❌ Non posso',
+    maybeNote:'Aggiunto a "forse" — l'organizzatore lo vedrà.',
+    bestTime:'A che ora preferisci?',howGet:'Come ci arrivi?',howOpt:'(opzionale)',
+    car:'🚗 In auto',moto:'🏍️ In moto',transit:'🚇 Trasporto pubblico',taxi:'🚕 Taxi/Uber',walk:'🚶 A piedi',bike:'🚲 Bici',other:'✏️ Altro',otherPh:'Come ci arrivi?',
+    commentLbl:'💬 Commento (opzionale)',commentPh:'Non vedo l'ora! / Arrivo un po' in ritardo / ...',
+    saveAvail:'Salva →',savedTitle:'Salvato!',savedSub:'La tua disponibilità è registrata. Puoi modificarla quando vuoi.',
+    editingPrev:'Stai modificando la tua risposta precedente',
+    viralQ:'Ti è piaciuto queda.?',viralSub:'Crea il tuo piano gratis.',viralBtn:'Crea il mio piano →',
+    responses:'risposta',responsesP:'risposte',noResp:'Nessuno ha ancora risposto',noRespSub:'Condividi il codice',
+    bestOpt:'Opzione migliore',CONFIRMED:'CONFERMATO',confirmThis:'📌 Conferma questa data',confirming:'Confermando...',confirmSmall:'Conferma',
+    perPerson:'A persona',totalLbl:'Totale',giftSec:'🎁 Regalo collettivo',totalPrice:'Prezzo totale',perOf:'A persona',seeGift:'Vedi regalo ↗',payTitle:'Paga la mia parte',
+    noCity:'Aggiungi una città per vedere il meteo',tooEarlyT:'È ancora presto per saperlo',tooEarlyD:'giorni alla previsione esatta',cityNotFound:'Città non trovata.',
+    howEach:'Come arriva ognuno?',noStops:'Aggiungi tappe con posizione per vedere i percorsi',
+    dest:'Destinazione',transitNote:'Calcolato in tempo reale dalla tua posizione.',transitBtn:'Vedi percorso su Google Maps →',calcBtn:'Calcola dalla mia posizione',calcLoading:'Calcolo in corso...',
+    myPlansT:'I miei piani',noPlansUp:'Nessun piano in arrivo',noPlansUpS:'Crea o unisciti a uno',noPlansPast:'Nessun piano passato',
+    upcoming:'📅 In arrivo',pastTab:'✅ Passati',organizer:'Organizzatore',guest:'Invitato',
+    confirmedDate:'📌 Data confermata',notifyGrp:'Avvisa il gruppo 💬',sendRem:'Promemoria',remSent:'✓ Inviato',
+    makePublic:'🌍 Rendi pubblico',isPublicLbl:'✓ Pubblico',
+    delConfirm:'Eliminare questo piano?',delWarn:'Sarà eliminato per tutti. Non si può annullare.',
+    leaveConfirm:'Lasciare il piano?',leaveWarn:'Verrà rimosso solo dalla tua lista.',
+    cancel:'Annulla',del:'Elimina',leave:'Lascia',comments:'Commenti',
+    tabs:{who:'👥 Chi',plan:'📍 Piano',dia:'🌤️ Giorno',ir:'🚗 Arrivare',extras:'🎁 Extra'},
+    discoverT:'Scopri',discoverS:'Piani pubblici aperti a tutti.',noPublic:'Nessun piano pubblico al momento.',joinPlan:'Unisciti →',
+    modeQ:'Che tipo di piano è?',modeSubQ:'Scegli la modalità e adattiamo l'esperienza.',
+    modes:{social:{label:'👥 Social',sub:'Amici, famiglia e conoscenti',color:'#CDFF6C',ex:['Cena di compleanno','Gita di fine settimana','Serata fuori','Avventura 🐪'],vibe:'Informale e libero'},intimate:{label:'💘 Intimo',sub:'Coppia, appuntamenti e incontri privati',color:'#F472B6',ex:['Primo appuntamento','Sorpresa romantica','Anniversario','Incontro privato'],vibe:'Privato e discreto'},professional:{label:'💼 Professionale',sub:'Lavoro, studi e servizi',color:'#60A5FA',ex:['Riunione team','Cena aziendale','Visita tecnica','Lezione privata'],vibe:'Formale e strutturato'}},
+    roles:['Organizzatore','Cliente','Fornitore','Dipendente','Studente','Insegnante'],yourRole:'Il tuo ruolo',guestRole:'Il tuo ruolo',
+    privateNote:'🔒 Le tue informazioni non vengono condivise fino all'accettazione.',
+    onb:[{e:'👥',t:'Scegli il tipo di piano',d:'Social per amici, Intimo per appuntamenti, Professionale per il lavoro.'},{e:'📅',t:'Proponi date e orari',d:'Seleziona la città e diversi giorni possibili. Ogni invitato segna Sì, Forse o No.'},{e:'🔗',t:'Condividi con un link',d:'Invia il link via WhatsApp. Nessuna app aggiuntiva necessaria.'},{e:'✅',t:'Conferma e fatto',d:'Quando hai le risposte conferma la data. Il gruppo riceve l'avviso.'}],
+    skip:'Salta',next:'Avanti →',start:'Iniziamo!',
+    cat:['🍽️ Ristorante','🍸 Bar','🎉 Discoteca','☕ Caffè','🎭 Attività','🏠 Casa','🍕 Informale','📍 Altro'],
+  },
 };
 
 
@@ -298,7 +523,7 @@ const Back=({onClick,label,c})=><button onClick={onClick} style={{background:'no
 const Badge=({children,color})=><span style={{fontSize:'11px',fontWeight:'700',padding:'3px 10px',borderRadius:'20px',background:`${color}18`,color,border:`1px solid ${color}35`}}>{children}</span>;
 const Card=({children,style={},c,accent})=><div style={{background:c?.CARD,border:`1px solid ${accent?c?.A+'50':c?.BD}`,borderRadius:'14px',padding:'16px',marginBottom:'10px',...style}}>{children}</div>;
 const Stepper=({cur,labels,c,accent})=><div style={{display:'flex',gap:'6px',marginBottom:'28px'}}>{labels.map((s,i)=><div key={s} style={{flex:1,textAlign:'center'}}><div style={{height:'3px',borderRadius:'2px',background:i<=cur?accent||c?.A:c?.BD,marginBottom:'6px',transition:'background .3s'}}/><span style={{fontSize:'11px',color:i===cur?accent||c?.A:c?.M,fontWeight:i===cur?'700':'400'}}>{s}</span></div>)}</div>;
-const ModeBadge=({mode,lang,c})=>{const m=T[lang]?.modes?.[mode];const color=MC[mode]||c?.A;return<span style={{fontSize:'11px',fontWeight:'700',padding:'3px 10px',borderRadius:'20px',background:`${color}18`,color,border:`1px solid ${color}35`}}>{m?.label||mode}</span>;};
+const ModeBadge=({mode,lang,c})=>{const m=T[lang]?.modes?.[mode];const color=getMC(mode,c)||c?.A;return<span style={{fontSize:'11px',fontWeight:'700',padding:'3px 10px',borderRadius:'20px',background:`${color}18`,color,border:`1px solid ${color}35`}}>{m?.label||mode}</span>;};
 
 // ─── CALENDAR ─────────────────────────────────────────
 function CalendarPicker({selected,onChange,c,lang}){
@@ -311,9 +536,9 @@ function CalendarPicker({selected,onChange,c,lang}){
   const tog=iso=>onChange(selected.includes(iso)?selected.filter(d=>d!==iso):[...selected,iso]);
   return(<div style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px'}}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
-      <button onClick={prev} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontSize:'20px',padding:'2px 8px'}}>‹</button>
+      <button onClick={prev} title={lang==='es'?'Mes anterior':'Previous month'} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontSize:'20px',padding:'2px 8px'}}>‹</button>
       <span style={{fontSize:'14px',fontWeight:'600',color:c.T,textTransform:'capitalize'}}>{fmtMonthYear(vy,vm,lang)}</span>
-      <button onClick={next} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontSize:'20px',padding:'2px 8px'}}>›</button>
+      <button onClick={next} title={lang==='es'?'Mes siguiente':'Next month'} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontSize:'20px',padding:'2px 8px'}}>›</button>
     </div>
     <div style={{display:'grid',gridTemplateColumns:'repeat(7,1fr)',gap:'3px',marginBottom:'4px'}}>
       {dl.map((d,i)=><div key={i} style={{textAlign:'center',fontSize:'11px',color:c.M,fontWeight:'600',padding:'4px'}}>{d}</div>)}
@@ -350,15 +575,15 @@ function TimePicker({times,onChange,c,lang,tz}){
 function CityInput({value,onChange,onSelect,placeholder,c}){
   const[res,setRes]=useState([]);const[open,setOpen]=useState(false);const[ldg,setL]=useState(false);
   const deb=useRef(null);
-  const search=q=>{if(deb.current)clearTimeout(deb.current);if(q.length<2){setRes([]);setOpen(false);return;}deb.current=setTimeout(async()=>{setL(true);try{const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=5&addressdetails=1`).then(x=>x.json());const f=r.filter(x=>['city','town','village','municipality'].includes(x.type)||x.class==='place');setRes(f.slice(0,5));setOpen(f.length>0);}catch{}setL(false);},400);};
-  const pick=r=>{const city=r.address?.city||r.address?.town||r.address?.village||r.display_name.split(',')[0];const country=r.address?.country||'';const label=`${city}${country?', '+country:''}`;const tz=getCityTz(city);onChange(label);onSelect({label,city,country,lat:parseFloat(r.lat),lon:parseFloat(r.lon),tz});setOpen(false);setRes([]);};
+  const search=q=>{if(deb.current)clearTimeout(deb.current);if(q.length<2){setRes([]);setOpen(false);return;}deb.current=setTimeout(async()=>{setL(true);try{const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=8&addressdetails=1&featuretype=settlement`).then(x=>x.json());setRes(r.slice(0,6));setOpen(r.length>0);}catch{}setL(false);},400);};
+  const pick=r=>{const city=r.address?.city||r.address?.town||r.address?.village||r.address?.county||r.display_name.split(',')[0];const country=r.address?.country||'';const label=`${city}${country?', '+country:''}`.trim();const tz=getCityTz(city);onChange(label);onSelect({label,city,country,lat:parseFloat(r.lat),lon:parseFloat(r.lon),tz});setOpen(false);setRes([]);};
   return(<div style={{position:'relative'}}>
     <div style={{position:'relative'}}>
       <input value={value} onChange={e=>{onChange(e.target.value);search(e.target.value);}} onFocus={()=>res.length>0&&setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),200)} placeholder={placeholder} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px 14px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box'}}/>
       {ldg&&<div style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',fontSize:'12px',color:c.M}}>...</div>}
     </div>
     {open&&<div style={{position:'absolute',top:'100%',left:0,right:0,background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',boxShadow:'0 8px 24px rgba(0,0,0,.3)',zIndex:50,overflow:'hidden',marginTop:'4px'}}>
-      {res.map((r,i)=>{const city=r.address?.city||r.address?.town||r.address?.village||r.display_name.split(',')[0];const country=r.address?.country||'';const state=r.address?.state||'';return(<div key={i} onMouseDown={()=>pick(r)} style={{padding:'12px 14px',cursor:'pointer',borderBottom:i<res.length-1?`1px solid ${c.BD}`:'none'}} onMouseEnter={e=>e.currentTarget.style.background=c.CARD2} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><div style={{fontSize:'14px',color:c.T,fontWeight:'500'}}>{city}</div><div style={{fontSize:'12px',color:c.M2}}>{[state,country].filter(Boolean).join(', ')}</div></div>);})}
+      {res.map((r,i)=>{const city=r.address?.city||r.address?.town||r.address?.village||r.display_name.split(',')[0];const country=r.address?.country||'';const state=r.address?.state||'';const dispName=r.address?.city||r.address?.town||r.address?.village||r.address?.county||r.display_name.split(',')[0];const dispCountry=r.address?.country||'';const dispState=r.address?.state||r.address?.county||'';return(<div key={i} onMouseDown={()=>pick(r)} style={{padding:'12px 14px',cursor:'pointer',borderBottom:i<res.length-1?`1px solid ${c.BD}`:'none'}} onMouseEnter={e=>e.currentTarget.style.background=c.CARD2} onMouseLeave={e=>e.currentTarget.style.background='transparent'}><div style={{fontSize:'14px',color:c.T,fontWeight:'500'}}>{dispName}</div><div style={{fontSize:'12px',color:c.M2,display:'flex',gap:'4px',alignItems:'center'}}>{dispCountry&&<span style={{background:c.BD,padding:'1px 6px',borderRadius:'10px',fontSize:'11px'}}>{dispCountry}</span>}{dispState&&<span>{dispState}</span>}</div></div>);})}
     </div>}
   </div>);
 }
@@ -371,10 +596,10 @@ function MapModal({onSelect,onClose,c,lang,init=''}){
   const search=async()=>{if(!q.trim())return;setSrch(true);try{const r=await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(q)}&format=json&limit=1`).then(x=>x.json());if(r.length>0){const{lat,lon,display_name,name}=r[0];const lN=parseFloat(lat),lgN=parseFloat(lon);lmap.current?.setView([lN,lgN],15);setSel({name:name||q,address:display_name,lat:lN,lng:lgN});if(mkr.current)mkr.current.remove();mkr.current=L.marker([lN,lgN]).addTo(lmap.current).bindPopup(name||display_name).openPopup();}}catch{}setSrch(false);};
   return(<div className="map-wrap" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div className="map-inner">
-      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'16px',fontWeight:'600',color:'#F0EBE1'}}>{t.searchMap}</span><button onClick={onClose} style={{background:'none',border:'none',color:'#888',cursor:'pointer',fontSize:'22px'}}>×</button></div>
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center'}}><span style={{fontSize:'16px',fontWeight:'600',color:'#F0EBE1'}}>{t.searchMap}</span><button onClick={onClose} title={lang==='es'?'Cerrar':'Close'} style={{background:'none',border:'none',color:'#888',cursor:'pointer',fontSize:'22px'}}>×</button></div>
       <div style={{display:'flex',gap:'8px'}}>
         <input value={q} onChange={e=>setQ(e.target.value)} onKeyDown={e=>e.key==='Enter'&&search()} placeholder={t.cityPh} style={{flex:1,background:'#1C1C1C',border:'1px solid #2A2A2A',borderRadius:'10px',padding:'10px 14px',color:'#F0EBE1',fontSize:'14px',fontFamily:'inherit',outline:'none'}}/>
-        <button onClick={search} style={{background:'#CDFF6C',border:'none',borderRadius:'10px',padding:'10px 16px',color:'#0A0A0A',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>{srch?'...':t.go}</button>
+        <button onClick={search} title={lang==='es'?'Buscar este lugar en el mapa':'Search for this place on the map'} style={{background:'#CDFF6C',border:'none',borderRadius:'10px',padding:'10px 16px',color:'#0A0A0A',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>{srch?'...':t.go}</button>
       </div>
       <div ref={mapRef} style={{flex:1,borderRadius:'12px',overflow:'hidden',minHeight:'200px'}}/>
       {sel&&<div style={{background:'#1C1C1C',borderRadius:'10px',padding:'12px',fontSize:'13px',color:'#F0EBE1'}}>
@@ -455,31 +680,57 @@ function VenueInfo({name,lat,lng,c,lang}){
 }
 
 // ─── TRANSPORT PANEL ──────────────────────────────────
-function TransportPanel({to,c,lang}){
+function TransportPanel({to,planCity,c,lang}){
   const t=T[lang];const isEs=lang==='es';
   const[times,setTimes]=useState({});const[ldg,setL]=useState(false);
   const[pos,setPos]=useState(null);const[asked,setAsked]=useState(false);
-  const req=()=>{setAsked(true);navigator.geolocation?.getCurrentPosition(p=>{const np={lat:p.coords.latitude,lon:p.coords.longitude};setPos(np);setL(true);(async()=>{const res={};for(const m of TMODES){const r=await getOsrmTime(np.lat,np.lon,to.lat,to.lng,m.k);if(r)res[m.k]=r;}setTimes(res);setL(false);})();},()=>setAsked(false),{timeout:8000});};
+  const[roadDist,setRoadDist]=useState(null);const[suggestion,setSuggestion]=useState(null);
+  const req=()=>{setAsked(true);navigator.geolocation?.getCurrentPosition(async p=>{const np={lat:p.coords.latitude,lon:p.coords.longitude};setPos(np);setL(true);
+    const res={};
+    for(const m of TMODES){const r=await getOsrmTime(np.lat,np.lon,to.lat,to.lng,m.k);if(r)res[m.k]=r;}
+    // Get road distance via car route
+    const carR=res['car'];
+    if(carR){
+      const distKm=parseFloat(carR.dist);setRoadDist(distKm);
+      if(distKm<1)setSuggestion({icon:'🚶',msg:isEs?'Puedes ir andando — menos de 1km':'You can walk — less than 1km'});
+      else if(distKm<5)setSuggestion({icon:'🚲',msg:isEs?`${distKm}km — ideal para bici o patinete`:`${distKm}km — great for cycling`});
+      else if(distKm<30)setSuggestion({icon:'🚗',msg:isEs?`${distKm}km — en coche o transporte público`:`${distKm}km — by car or public transport`});
+      else if(distKm<300)setSuggestion({icon:'🚂',msg:isEs?`${distKm}km — considera el tren`:`${distKm}km — consider the train`});
+      else setSuggestion({icon:'✈️',msg:isEs?`${distKm}km — viaje largo, considera un vuelo`:`${distKm}km — long trip, consider a flight`});
+    }
+    setTimes(res);setL(false);
+  },()=>setAsked(false),{timeout:8000});};
   if(!to?.lat&&!to?.lng)return null;
-  const dest=`${to.lat},${to.lng}`;
+  const dest=`${to.lat},${to.lng}`;const destQ=encodeURIComponent(`${to.name||''} ${to.address||''}`.trim()||planCity||'');
   const gmTransit=`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=transit`;
   const tf=mins=>mins<60?`${mins} min`:`${Math.floor(mins/60)}h ${mins%60}min`;
+  const flightCity=encodeURIComponent(planCity||to.name||'');
   return(<div style={{marginTop:'12px'}}>
     <Lbl c={c}>⏱️ {isEs?'Cómo llegar':'Getting there'}</Lbl>
+    {/* Smart suggestion */}
+    {suggestion&&<div style={{background:`${c.A}10`,border:`1px solid ${c.A}30`,borderRadius:'10px',padding:'10px 14px',marginBottom:'10px',display:'flex',gap:'8px',alignItems:'center'}}><span style={{fontSize:'20px'}}>{suggestion.icon}</span><span style={{fontSize:'13px',color:c.T,fontWeight:'500'}}>{suggestion.msg}</span></div>}
+    {/* Public transit */}
     <div style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px',marginBottom:'8px'}}>
       <div style={{fontSize:'13px',color:c.T,fontWeight:'500',marginBottom:'6px'}}>🚇 {isEs?'Transporte público':'Public transport'}</div>
-      <div style={{fontSize:'12px',color:c.M2,marginBottom:'8px'}}>{t.transitNote}</div>
       <a href={gmTransit} target="_blank" rel="noreferrer" style={{display:'block',textAlign:'center',padding:'9px',background:`${c.A}15`,border:`1px solid ${c.A}40`,borderRadius:'8px',color:c.A,textDecoration:'none',fontSize:'13px',fontWeight:'600'}}>{t.transitBtn}</a>
     </div>
+    {/* Calc from location */}
     {!asked&&<button onClick={req} style={{width:'100%',padding:'11px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',color:c.M2,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',marginBottom:'8px'}}>📍 {t.calcBtn}</button>}
-    {asked&&!pos&&!ldg&&<div style={{fontSize:'12px',color:c.M,textAlign:'center',padding:'8px'}}>{t.calcLoading}</div>}
-    {ldg&&<div style={{fontSize:'12px',color:c.M,textAlign:'center',padding:'8px'}}>{t.calcLoading}</div>}
+    {(asked&&!pos&&!ldg||ldg)&&<div style={{fontSize:'12px',color:c.M,textAlign:'center',padding:'8px'}}>{t.calcLoading}</div>}
     {!ldg&&Object.keys(times).length>0&&<div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'6px',marginBottom:'8px'}}>
-      {TMODES.map(m=>{const tm=times[m.k];if(!tm)return null;const gmUrl=m.k==='foot'?`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=walking`:m.k==='car'||m.k==='moto'?`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`:gmTransit;return<a key={m.k} href={gmUrl} target="_blank" rel="noreferrer" style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'10px 12px',textDecoration:'none',display:'block'}}><div style={{fontSize:'13px',color:c.T,fontWeight:'500'}}>{isEs?m.es:m.en}</div><div style={{fontSize:'15px',color:c.A,fontWeight:'700'}}>{tf(tm.mins)}</div><div style={{fontSize:'11px',color:c.M2}}>{tm.dist} km</div></a>;})}
+      {TMODES.map(m=>{const tm=times[m.k];if(!tm)return null;const gmUrl=m.k==='foot'?`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=walking`:m.k==='car'||m.k==='moto'?`https://www.google.com/maps/dir/?api=1&destination=${dest}&travelmode=driving`:gmTransit;return<a key={m.k} href={gmUrl} target="_blank" rel="noreferrer" style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'10px 12px',textDecoration:'none',display:'block'}}><div style={{fontSize:'13px',color:c.T,fontWeight:'500'}}>{m[lang]||m.en}</div><div style={{fontSize:'15px',color:c.A,fontWeight:'700'}}>{tf(tm.mins)}</div><div style={{fontSize:'11px',color:c.M2}}>{tm.dist} km</div></a>;})}
     </div>}
-    <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-      {[{n:'Uber',u:'https://m.uber.com/',i:'⚫'},{n:'Cabify',u:'https://cabify.com/',i:'🟣'},{n:'Renfe',u:'https://www.renfe.com/',i:'🚆'},{n:'Trainline',u:'https://www.thetrainline.com/',i:'🎫'}].map(tx=><a key={tx.n} href={tx.u} target="_blank" rel="noreferrer" style={{padding:'6px 12px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',textDecoration:'none',fontSize:'12px',color:c.T,fontWeight:'500'}}>{tx.i} {tx.n}</a>)}
+    {/* Quick links: taxis, trains */}
+    <div style={{display:'flex',gap:'6px',flexWrap:'wrap',marginBottom:'10px'}}>
+      {[{n:'Uber',u:'https://m.uber.com/',i:'⚫'},{n:'Cabify',u:'https://cabify.com/',i:'🟣'},{n:'Renfe',u:'https://www.renfe.com/',i:'🚆'},{n:'Trainline',u:'https://www.thetrainline.com/',i:'🎫'},{n:'BlaBlaCar',u:`https://www.blablacar.es/search-rides?fn=&tn=${encodeURIComponent(planCity||'')}&db=${new Date().toISOString().split('T')[0]}`,i:'🚗'}].map(tx=><a key={tx.n} href={tx.u} target="_blank" rel="noreferrer" style={{padding:'6px 10px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',textDecoration:'none',fontSize:'12px',color:c.T,fontWeight:'500'}}>{tx.i} {tx.n}</a>)}
     </div>
+    {/* Flights section */}
+    {(roadDist===null||roadDist>200)&&<div style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px'}}>
+      <div style={{fontSize:'13px',color:c.T,fontWeight:'500',marginBottom:'8px'}}>✈️ {isEs?'Vuelos':'Flights'}</div>
+      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+        {[{n:'Google Flights',u:`https://www.google.com/travel/flights?q=flights+to+${flightCity}`,i:'🔍'},{n:'Skyscanner',u:`https://www.skyscanner.net/transport/flights/anywhere/${flightCity.replace(/%20/g,'-').toLowerCase()}/`,i:'🌐'},{n:'Travala',u:`https://www.travala.com/flights?to=${flightCity}`,i:'💎'}].map(f=><a key={f.n} href={f.u} target="_blank" rel="noreferrer" style={{padding:'7px 10px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',textDecoration:'none',fontSize:'12px',color:c.T,fontWeight:'500'}}>{f.i} {f.n}</a>)}
+      </div>
+    </div>}
   </div>);
 }
 
@@ -547,7 +798,7 @@ function ModeSelect({onSelect,onBack,c,lang}){
     <Back onClick={onBack} label={t.back} c={c}/>
     <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'6px'}}>{t.modeQ}</h2>
     <p style={{color:c.M2,fontSize:'13px',marginBottom:'24px'}}>{t.modeSubQ}</p>
-    {['social','intimate','professional'].map(mk=>{const m=t.modes[mk];const col=MC[mk];return(
+    {['social','intimate','professional'].map(mk=>{const m=t.modes[mk];const col=getMC(mk,c);return(
       <div key={mk} onClick={()=>onSelect(mk)} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'16px',padding:'20px',marginBottom:'12px',cursor:'pointer',position:'relative',overflow:'hidden'}} onMouseEnter={e=>{e.currentTarget.style.borderColor=col+'80';}} onMouseLeave={e=>{e.currentTarget.style.borderColor=c.BD;}}>
         <div style={{position:'absolute',top:0,left:0,width:'4px',height:'100%',background:col}}/>
         <div style={{display:'flex',gap:'14px',alignItems:'flex-start'}}>
@@ -624,7 +875,7 @@ function Profile({onBack,onOpen,c,lang}){
     <div style={{display:'flex',alignItems:'center',marginBottom:'20px'}}>
       <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T}}>{t.myPlansT}</h2>
       <div style={{display:'flex',gap:'5px',marginLeft:'auto'}}>
-        {[['social','#CDFF6C'],['intimate','#F472B6'],['professional','#60A5FA']].map(([m,col])=><div key={m} style={{width:'9px',height:'9px',borderRadius:'50%',background:col}} title={m}/>)}
+        {Object.entries(MC_DARK).map(([m,col])=><div key={m} style={{width:'9px',height:'9px',borderRadius:'50%',background:col}} title={m}/>)}
       </div>
     </div>
     {/* Quick stats */}
@@ -646,7 +897,7 @@ function Profile({onBack,onOpen,c,lang}){
     </div>
     {shown.length===0?<div style={{textAlign:'center',padding:'32px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px'}}><div style={{fontSize:'36px',marginBottom:'12px'}}>📋</div><div style={{color:c.T,fontWeight:'500',marginBottom:'6px'}}>{tab==='upcoming'?t.noPlansUp:t.noPlansPast}</div>{tab==='upcoming'&&<div style={{color:c.M2,fontSize:'13px'}}>{t.noPlansUpS}</div>}</div>
     :shown.map(p=>{
-      const mode=modes[p.id]||p.mode||'social';const mc=MC[mode]||c.A;const d=dates[p.id];
+      const mode=modes[p.id]||p.mode||'social';const mc=getMC(mode,c);const d=dates[p.id];
       const du=d?daysUntil(d):null;const isToday=du===0;const isTmrw=du===1;const isSoon=du!=null&&du<=3&&du>=0;
       return(<div key={p.id} style={{background:c.CARD,border:`1px solid ${isSoon?mc+'50':c.BD}`,borderRadius:'14px',marginBottom:'10px',overflow:'hidden',display:'flex',opacity:isPast(p.id)?0.65:1}}>
         <div style={{width:'4px',background:mc,flexShrink:0}}/>
@@ -660,8 +911,8 @@ function Profile({onBack,onOpen,c,lang}){
             </div>
           </div>
           <div style={{display:'flex',gap:'5px',flexShrink:0}}>
-            <button onClick={()=>onOpen(p.id)} style={{background:'none',border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',color:c.M2,cursor:'pointer',fontSize:'12px',fontFamily:'inherit'}}>→</button>
-            <button onClick={e=>{e.stopPropagation();setConfirm(p);}} style={{background:'none',border:'1px solid #ff444430',borderRadius:'8px',padding:'6px 10px',color:'#ff6666',cursor:'pointer',fontSize:'13px'}}>{p.role==='organizer'?'🗑️':'👋'}</button>
+            <button onClick={()=>onOpen(p.id)} title={isEs?'Ver plan':'View plan'} style={{background:'none',border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',color:c.M2,cursor:'pointer',fontSize:'12px',fontFamily:'inherit'}}>→</button>
+            <button onClick={e=>{e.stopPropagation();setConfirm(p);}} title={p.role==='organizer'?(isEs?'Eliminar plan':'Delete plan'):(isEs?'Salirme del plan':'Leave plan')} style={{background:'none',border:'1px solid #ff444430',borderRadius:'8px',padding:'6px 10px',color:'#ff6666',cursor:'pointer',fontSize:'13px'}}>{p.role==='organizer'?'🗑️':'👋'}</button>
           </div>
         </div>
       </div>);
@@ -686,7 +937,7 @@ function Discover({onBack,onJoin,c,lang}){
     <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'4px'}}>{t.discoverT}</h2>
     <p style={{color:c.M2,fontSize:'13px',marginBottom:'16px'}}>{t.discoverS}</p>
     <div style={{display:'flex',gap:'6px',marginBottom:'12px',flexWrap:'wrap'}}>
-      {modes.map(m=>{const mc2=m.k==='all'?c.A:MC[m.k]||c.A;return(<button key={m.k} onClick={()=>setModeF(m.k)} style={{padding:'6px 12px',borderRadius:'20px',border:`1px solid ${modeF===m.k?mc2+'60':c.BD}`,background:modeF===m.k?`${mc2}15`:c.CARD,color:modeF===m.k?mc2:c.M2,fontSize:'12px',fontWeight:modeF===m.k?'700':'400',cursor:'pointer',fontFamily:'inherit'}}>{m.l}</button>);})}
+      {modes.map(m=>{const mc2=m.k==='all'?c.A:getMC(m.k,c);return(<button key={m.k} onClick={()=>setModeF(m.k)} style={{padding:'6px 12px',borderRadius:'20px',border:`1px solid ${modeF===m.k?mc2+'60':c.BD}`,background:modeF===m.k?`${mc2}15`:c.CARD,color:modeF===m.k?mc2:c.M2,fontSize:'12px',fontWeight:modeF===m.k?'700':'400',cursor:'pointer',fontFamily:'inherit'}}>{m.l}</button>);})}
     </div>
     <input value={fc} onChange={e=>setFC(e.target.value)} placeholder={isEs?'Buscar por ciudad o nombre...':'Search by city or name...'} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'10px 14px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box',marginBottom:'16px'}}/>
     {ldg&&<div style={{textAlign:'center',color:c.M,padding:'48px'}}>...</div>}
@@ -705,7 +956,7 @@ function Discover({onBack,onJoin,c,lang}){
 
 // ─── CREATE ───────────────────────────────────────────
 function Create({onBack,onCreated,c,lang,mode}){
-  const t=T[lang];const mc=MC[mode]||c.A;const isEs=lang==='es';
+  const t=T[lang];const mc=getMC(mode,c);const isEs=lang==='es';
   const[step,setStep]=useState(0);
   const[name,setName]=useState('');const[desc,setDesc]=useState('');
   const[org,setOrg]=useState(ls.get('q_myname',''));const[orgEmail,setOrgEmail]=useState('');
@@ -717,6 +968,8 @@ function Create({onBack,onCreated,c,lang,mode}){
   const[dressCode,setDressCode]=useState(null);const[dressNote,setDressNote]=useState('');
   const[autoConfirm,setAutoConfirm]=useState(false);const[autoConfirmN,setAutoConfirmN]=useState(3);
   const[surpriseMode,setSurprise]=useState(false);
+  const[maxGuests,setMaxGuests]=useState('');
+  const[orgAttends,setOrgAttends]=useState(true);
   const[poll,setPoll]=useState({q:'',opts:['','']});
   const[giftOn,setGiftOn]=useState(false);const[gift,setGift]=useState({name:'',link:'',price:'',stripeLink:''});
   const[bring,setBring]=useState([{id:1,text:''}]);
@@ -731,7 +984,7 @@ function Create({onBack,onCreated,c,lang,mode}){
   const stepLabels=mode==='intimate'?[t.basics,t.datesStep,t.routeStep]:[t.basics,t.datesStep,t.routeStep,t.extrasStep];
   const create=async()=>{
     setSaving(true);
-    const plan={id:genId(),name:name.trim(),desc:desc.trim(),organizer:org.trim(),organizerEmail:orgEmail.trim(),organizerRole:orgRole,mode,dates:[...selDates].sort(),times:selTimes,timezone:planTz,city:city.split(',')[0].trim(),cityFull:city,cityLat:cityData?.lat,cityLon:cityData?.lon,stops,dressCode,dressNote,autoConfirm,autoConfirmN,surpriseMode,poll:poll.q.trim()?poll:null,gift:giftOn?gift:null,bring:bring.filter(b=>b.text.trim()),payment,confirmedDate:null,isPublic:mode!=='intimate'?isPublic:false,lang,createdAt:new Date().toISOString()};
+    const plan={id:genId(),name:name.trim(),desc:desc.trim(),organizer:org.trim(),organizerEmail:orgEmail.trim(),organizerRole:orgRole,mode,dates:[...selDates].sort(),times:selTimes,timezone:planTz,city:city.split(',')[0].trim(),cityFull:city,cityLat:cityData?.lat,cityLon:cityData?.lon,stops,dressCode,dressNote,autoConfirm,autoConfirmN,surpriseMode,maxGuests:maxGuests?parseInt(maxGuests):null,orgAttends,poll:poll.q.trim()?poll:null,gift:giftOn?gift:null,bring:bring.filter(b=>b.text.trim()),payment,confirmedDate:null,isPublic:mode!=='intimate'?isPublic:false,lang,createdAt:new Date().toISOString()};
     await savePlan(plan);addMyPlan(plan.id,plan.name,'organizer',mode);
     ls.set('q_state',{screen:'share',planId:plan.id,isOrg:true});onCreated(plan);
   };
@@ -750,6 +1003,14 @@ function Create({onBack,onCreated,c,lang,mode}){
         <div style={{marginBottom:'14px'}}><Lbl c={c}>{t.desc}</Lbl><Txa value={desc} onChange={setDesc} placeholder={t.descPh} c={c}/></div>
         <div style={{marginBottom:'14px'}}><Lbl c={c}>{t.yourName}</Lbl><Inp value={org} onChange={setOrg} placeholder={t.yourNamePh} c={c}/></div>
         <div style={{marginBottom:'14px'}}><Lbl c={c}>{t.emailLbl}</Lbl><Inp value={orgEmail} onChange={setOrgEmail} placeholder={t.emailPh} type="email" c={c}/></div>
+        <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'10px',marginBottom:'14px'}}>
+          <div><Lbl c={c}>{isEs?'Aforo máximo (opcional)':'Max attendees (optional)'}</Lbl><input type="number" min="1" max="999" value={maxGuests} onChange={e=>setMaxGuests(e.target.value)} placeholder={isEs?'Sin límite':'No limit'} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px 14px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box'}}/></div>
+          <div><Lbl c={c}>{isEs?'¿Asistirás?':'Will you attend?'}</Lbl>
+            <div style={{display:'flex',gap:'6px'}}>
+              {[{v:true,l:isEs?'Sí':'Yes'},{v:false,l:'No'}].map(o=><button key={String(o.v)} onClick={()=>setOrgAttends(o.v)} style={{flex:1,padding:'12px 6px',borderRadius:'10px',border:`1px solid ${orgAttends===o.v?mc+'50':c.BD}`,background:orgAttends===o.v?`${mc}15`:c.CARD,color:orgAttends===o.v?mc:c.T,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',fontWeight:orgAttends===o.v?'700':'400'}}>{o.l}</button>)}
+            </div>
+          </div>
+        </div>
         {mode==='professional'&&<div style={{marginBottom:'14px'}}><Lbl c={c}>{t.yourRole}</Lbl><select value={orgRole} onChange={e=>setOrgRole(e.target.value)} style={{background:c.CARD,border:`1px solid ${c.BD}`,color:c.T,fontSize:'14px',padding:'12px 14px',borderRadius:'10px',width:'100%',fontFamily:'inherit'}}>{t.roles.map(r=><option key={r} value={r}>{r}</option>)}</select></div>}
         {mode!=='intimate'&&<div onClick={()=>setIsPublic(p=>!p)} style={{display:'flex',alignItems:'center',gap:'12px',padding:'14px 16px',background:c.CARD,border:`1px solid ${isPublic?mc+'50':c.BD}`,borderRadius:'12px',cursor:'pointer',marginBottom:'24px'}}>
           <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${isPublic?mc:c.BD}`,background:isPublic?mc:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800',flexShrink:0}}>{isPublic?'✓':''}</div>
@@ -765,7 +1026,10 @@ function Create({onBack,onCreated,c,lang,mode}){
         <div style={{marginBottom:'16px'}}>
           <Lbl c={c}>{t.cityLbl}</Lbl>
           <CityInput value={city} onChange={setCity} onSelect={d=>{setCityData(d);setCity(d.label);}} placeholder={t.cityPh} c={c}/>
-          {city&&<div style={{fontSize:'12px',color:c.M2,marginTop:'6px'}}>🌍 {t.tzInfo} <span style={{color:c.T,fontWeight:'500'}}>{getTzLabel(planTz)}</span></div>}
+          {city&&<div style={{fontSize:'12px',color:c.M2,marginTop:'6px',display:'flex',flexWrap:'wrap',gap:'8px',alignItems:'center'}}>
+  <span>🌍 <span style={{color:c.T,fontWeight:'500'}}>{getTzLabel(planTz)}</span> <span style={{color:c.M}}>({getGMTOffset(planTz)})</span></span>
+  {(()=>{const uTz=getUserTz();if(!uTz||uTz===planTz)return null;return<span style={{color:c.M}}>· {isEs?'Tu zona:':'Your zone:'} <span style={{fontWeight:'500'}}>{getGMTOffset(uTz)}</span></span>;})()}
+</div>}
         </div>
         {city&&selDates.length>0&&<div style={{marginBottom:'16px'}}>
           <Lbl c={c}>{isEs?'Previsión del tiempo':'Weather forecast'}</Lbl>
@@ -798,8 +1062,8 @@ function Create({onBack,onCreated,c,lang,mode}){
               <span style={{fontSize:'12px',color:c.M2,fontWeight:'600',textTransform:'uppercase',letterSpacing:'.05em'}}>{t.stop} {i+1}</span>
             </div>
             <div style={{display:'flex',gap:'6px'}}>
-              <button onClick={()=>setMapStop(s.id)} style={{background:'none',border:`1px solid ${c.BD}`,color:mc,cursor:'pointer',fontSize:'12px',padding:'4px 10px',borderRadius:'8px',fontFamily:'inherit',fontWeight:'600'}}>{t.searchMap}</button>
-              {stops.length>1&&<button onClick={()=>remStop(s.id)} style={{background:'none',border:'none',color:c.M,cursor:'pointer',fontSize:'18px'}}>×</button>}
+              <button onClick={()=>setMapStop(s.id)} title={isEs?'Buscar y seleccionar en el mapa':'Search and select on map'} style={{background:'none',border:`1px solid ${c.BD}`,color:mc,cursor:'pointer',fontSize:'12px',padding:'4px 10px',borderRadius:'8px',fontFamily:'inherit',fontWeight:'600'}}>{t.searchMap}</button>
+              {stops.length>1&&<button onClick={()=>remStop(s.id)} title={isEs?'Eliminar parada':'Remove stop'} style={{background:'none',border:'none',color:c.M,cursor:'pointer',fontSize:'18px'}}>×</button>}
             </div>
           </div>
           {s.lat&&<div style={{fontSize:'11px',color:mc,marginBottom:'8px'}}>📍 {isEs?'Ubicación seleccionada':'Location set'}</div>}
@@ -859,7 +1123,7 @@ function Create({onBack,onCreated,c,lang,mode}){
           <Lbl c={c}>{t.bring}</Lbl>
           {bring.map(b=><div key={b.id} style={{display:'flex',gap:'8px',marginBottom:'8px'}}>
             <input value={b.text} onChange={e=>setBring(p=>p.map(x=>x.id===b.id?{...x,text:e.target.value}:x))} placeholder={t.newItem} style={{flex:1,background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'10px 12px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none'}}/>
-            {bring.length>1&&<button onClick={()=>setBring(p=>p.filter(x=>x.id!==b.id))} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M,cursor:'pointer',fontSize:'16px',borderRadius:'8px',width:'36px'}}>×</button>}
+            {bring.length>1&&<button onClick={()=>setBring(p=>p.filter(x=>x.id!==b.id))} title={isEs?'Eliminar elemento':'Remove item'} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M,cursor:'pointer',fontSize:'16px',borderRadius:'8px',width:'36px'}}>×</button>}
           </div>)}
           <Btn onClick={()=>setBring(p=>[...p,{id:Date.now(),text:''}])} v="secondary" sm c={c}>{t.addItem}</Btn>
         </div>
@@ -892,7 +1156,7 @@ function Create({onBack,onCreated,c,lang,mode}){
 
 // ─── SHARE ────────────────────────────────────────────
 function Share({plan,onViewResults,onBack,c,lang}){
-  const t=T[lang];const mc=MC[plan.mode||'social']||c.A;
+  const t=T[lang];const mc=getMC(plan.mode,c);
   const[copied,setCopied]=useState(false);const[count,setCount]=useState(null);
   const url=location.href.split('?')[0]+'?code='+plan.id;
   const copy=()=>{navigator.clipboard?.writeText(url).catch(()=>{});setCopied(true);setTimeout(()=>setCopied(false),2000);};
@@ -928,7 +1192,7 @@ function Share({plan,onViewResults,onBack,c,lang}){
 
 // ─── PERSONALISED LINK ───────────────────────────────
 function PersonalisedLink({plan,c,lang}){
-  const isEs=lang==='es'; const mc=MC[plan.mode||'social']||c.A;
+  const isEs=lang==='es'; const mc=getMC(plan.mode,c);
   const[name,setName]=useState('');const[copied,setCopied]=useState(false);
   const base=location.href.split('?')[0];
   const url=name.trim()?`${base}?code=${plan.id}&name=${encodeURIComponent(name.trim())}`:null;
@@ -946,7 +1210,7 @@ function PersonalisedLink({plan,c,lang}){
 
 // ─── PLAN PREVIEW ─────────────────────────────────────
 function PlanPreview({plan,onRespond,onBack,c,lang}){
-  const t=T[lang];const isEs=lang==='es';const mc=MC[plan.mode||'social']||c.A;
+  const t=T[lang];const isEs=lang==='es';const mc=getMC(plan.mode,c);
   const budget=(plan.stops||[]).reduce((s,p)=>s+(parseFloat(p.cost)||0),0);
   const prev=ls.get('q_myresp_'+plan.id,null);
   const hasPrev=!!prev;
@@ -987,8 +1251,8 @@ function PlanPreview({plan,onRespond,onBack,c,lang}){
 
 // ─── RESPOND ─────────────────────────────────────────
 function Respond({plan,onBack,onDone,onCreateOwn,c,lang:appLang}){
-  const pLang=plan.lang||appLang;const t=T[pLang];const isEs=pLang==='es';
-  const mc=MC[plan.mode||'social']||c.A;
+  const pLang=appLang;const t=T[pLang];const isEs=pLang==='es';
+  const mc=getMC(plan.mode,c);
   const prevKey='q_myresp_'+plan.id;
   const prev=ls.get(prevKey,null);
   const urlName=new URLSearchParams(location.search).get('name')||'';
@@ -1047,30 +1311,34 @@ function Respond({plan,onBack,onDone,onCreateOwn,c,lang:appLang}){
     <div style={{marginBottom:'14px'}}><Lbl c={c}>{t.yourName}</Lbl><Inp value={name} onChange={v=>{setName(v);ls.set('q_myname',v);}} placeholder={t.yourNamePh} c={c}/></div>
     {plan.mode==='professional'&&<div style={{marginBottom:'14px'}}><Lbl c={c}>{t.guestRole}</Lbl><select value={guestRole} onChange={e=>setGuestRole(e.target.value)} style={{background:c.CARD,border:`1px solid ${c.BD}`,color:c.T,fontSize:'14px',padding:'12px 14px',borderRadius:'10px',width:'100%',fontFamily:'inherit'}}>{t.roles.map(r=><option key={r} value={r}>{r}</option>)}</select></div>}
 
-    {/* YES / MAYBE / NO per date */}
+        {/* DATE + TIME + YES/MAYBE/NO — each slot independent */}
     <div style={{marginBottom:'20px'}}>
       <Lbl c={c}>{plan.mode==='intimate'?(isEs?'Para ti... ¿cuándo te va bien?':'When works best for you?'):plan.mode==='professional'?(isEs?'¿Cuándo tiene disponibilidad?':'When are you available?'):t.yourAvail}</Lbl>
+      <div style={{fontSize:'12px',color:c.M2,marginBottom:'12px',lineHeight:1.5}}>{isEs?'Marca cada fecha y hora individualmente — puedes poner Sí a una hora y No a otra del mismo día.':'Mark each date and time individually — you can say Yes to one time and No to another on the same day.'}</div>
       {(plan.dates||[]).map(d=>{
-        const val=avail[d];const ts=plan.times?.[d]||[];
-        return(<div key={d} style={{marginBottom:'10px'}}>
-          <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'12px 12px 0 0',padding:'10px 12px',fontSize:'13px',color:c.T,fontWeight:'500',textTransform:'capitalize'}}>{fmtDate(d,pLang)}</div>
-          <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'1px',background:c.BD}}>
-            {(['yes','maybe','no']).map(v=><button key={v} onClick={()=>setDA(d,v)} style={{padding:'10px 6px',background:val===v?AVCOL[v]+'25':c.CARD,color:val===v?AVCOL[v]:c.M2,cursor:'pointer',border:'none',fontFamily:'inherit',fontSize:'12px',fontWeight:val===v?'700':'400',transition:'all .1s'}}>
-              {AVICON[v]}<br/><span style={{fontSize:'10px'}}>{AVLBL[v].replace(/[✅🤔❌]\s?/,'')}</span>
-            </button>)}
+        const ts=plan.times?.[d]||[];
+        const slots=ts.length>0?ts.map(h=>({key:`${d}_${h}`,label:h})):[{key:d,label:null}];
+        return(<div key={d} style={{marginBottom:'12px',background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'14px',overflow:'hidden'}}>
+          <div style={{padding:'10px 14px',background:c.CARD,borderBottom:`1px solid ${c.BD}`,fontSize:'13px',color:c.T,fontWeight:'600',textTransform:'capitalize',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
+            <span>{fmtDate(d,pLang)}</span>
+            {slots.length>1&&<button onClick={()=>{const u={};slots.forEach(s=>{u[s.key]='no';});setAvail(p=>({...p,...u}));}} title={isEs?'Marcar todas las horas de este día como No puedo':'Mark all times this day as Cannot make it'} style={{background:'none',border:'none',color:'#ef4444',fontSize:'11px',cursor:'pointer',fontFamily:'inherit',opacity:0.7}}>❌ {isEs?'Todo No':'All No'}</button>}
           </div>
-          {val==='maybe'&&<div style={{padding:'8px 12px',background:`#f59e0b10`,borderRadius:'0 0 12px 12px',border:`1px solid #f59e0b30`,borderTop:'none',fontSize:'12px',color:'#f59e0b'}}>{t.maybeNote}</div>}
-          {(val==='yes'||val==='maybe')&&(plan.dates||[]).length>1&&(plan.dates||[]).some(d2=>d2!==d&&!avail[d2])&&<div style={{padding:'6px 12px',background:c.CARD2,borderRadius:'0 0 12px 12px',borderTop:`1px solid ${c.BD}`,borderLeft:`1px solid ${c.BD}`,borderRight:`1px solid ${c.BD}`,borderBottom:`1px solid ${c.BD}`}}><button onClick={()=>{const updates={};(plan.dates||[]).forEach(d2=>{if(d2!==d&&!avail[d2])updates[d2]=val;});setAvail(p=>({...p,...updates}));}} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontFamily:'inherit',fontSize:'11px',padding:'0',textDecoration:'underline'}}>{isEs?`Aplicar "${val==='yes'?'Sí':'Quizás'}" a todas las fechas sin respuesta`:`Apply "${val==='yes'?'Yes':'Maybe'}" to all unanswered dates`}</button></div>}
-          {val==='yes'&&ts.length>0&&<div style={{padding:'10px 14px',background:c.CARD2,borderRadius:'0 0 12px 12px',border:`1px solid ${c.BD}`,borderTop:'none'}}>
-            <div style={{fontSize:'11px',color:c.M,fontWeight:'700',letterSpacing:'.06em',textTransform:'uppercase',marginBottom:'7px'}}>{t.bestTime}</div>
-            <div style={{display:'flex',flexWrap:'wrap',gap:'5px'}}>
-              {ts.map(h=>{const on=(timePref[d]||[]).includes(h);return<span key={h} onClick={()=>togT(d,h)} style={{fontSize:'12px',padding:'4px 11px',borderRadius:'20px',border:`1px solid ${on?mc:c.BD}`,background:on?`${mc}20`:'transparent',color:on?mc:c.M2,cursor:'pointer',fontWeight:on?'700':'400'}}>{h}</span>;})}
-            </div>
-          </div>}
+          {slots.map((slot,si)=>{
+            const val=avail[slot.key];
+            return(<div key={slot.key} style={{borderBottom:si<slots.length-1?`1px solid ${c.BD}`:'none'}}>
+              {slot.label&&<div style={{padding:'8px 14px 4px',fontSize:'12px',color:mc,fontWeight:'700'}}>🕐 {slot.label}</div>}
+              <div style={{display:'grid',gridTemplateColumns:'1fr 1fr 1fr',gap:'1px',background:c.BD}}>
+                {(['yes','maybe','no']).map(v=><button key={v} onClick={()=>setAvail(p=>({...p,[slot.key]:p[slot.key]===v?undefined:v}))} style={{padding:'10px 6px',background:val===v?AVCOL[v]+'25':c.CARD,color:val===v?AVCOL[v]:c.M2,cursor:'pointer',border:'none',fontFamily:'inherit',fontSize:'12px',fontWeight:val===v?'700':'400',transition:'all .1s'}}>
+                  {AVICON[v]}<br/><span style={{fontSize:'10px'}}>{AVLBL[v].replace(/[✅🤔❌]\s?/,'')}</span>
+                </button>)}
+              </div>
+              {val==='maybe'&&<div style={{padding:'6px 12px',background:'#f59e0b10',fontSize:'11px',color:'#f59e0b'}}>{t.maybeNote}</div>}
+            </div>);
+          })}
         </div>);
       })}
+      <button onClick={()=>{const u={};(plan.dates||[]).forEach(d=>{const ts=plan.times?.[d]||[];const slots=ts.length>0?ts.map(h=>`${d}_${h}`):[d];slots.forEach(k=>{if(!avail[k])u[k]='yes';});});setAvail(p=>({...p,...u}));}} title={isEs?'Marcar todas las fechas y horas como Sí puedo':'Mark all dates and times as Yes'} style={{width:'100%',padding:'8px',background:'none',border:`1px dashed ${c.BD}`,borderRadius:'10px',color:c.M2,cursor:'pointer',fontFamily:'inherit',fontSize:'12px',marginTop:'4px'}}>✅ {isEs?'Marcar todo Sí':'Mark all Yes'}</button>
     </div>
-
     {/* Suggest alternative date */}
     {Object.keys(avail).length>0&&Object.values(avail).every(v=>v==='no')&&<div style={{background:'#f59e0b10',border:'1px solid #f59e0b30',borderRadius:'12px',padding:'14px',marginBottom:'14px'}}>
       <div style={{fontSize:'13px',color:'#f59e0b',fontWeight:'600',marginBottom:'8px'}}>😕 {isEs?'Ninguna fecha te viene bien. ¿Propones otra?':'None of the dates work. Want to suggest one?'}</div>
@@ -1103,6 +1371,39 @@ function Respond({plan,onBack,onDone,onCreateOwn,c,lang:appLang}){
     </div>
 
     <Btn onClick={submit} disabled={!name.trim()||saving} full style={{padding:'15px',fontSize:'15px',background:mc,color:'#0A0A0A'}} c={c}>{saving?t.saving:plan.mode==='professional'?(isEs?'Confirmar asistencia →':'Confirm attendance →'):plan.mode==='intimate'?(isEs?'Confirmar →':'Confirm →'):t.saveAvail}</Btn>
+  </div>);
+}
+
+
+// ─── ACCOMMODATION + AFTER PLAN SUGGESTIONS ──────────
+function AfterPlanSuggestions({plan, c, lang}){
+  const isEs=lang==='es'; const mc=getMC(plan.mode,c);
+  const city=plan.city||'';
+  const cityEnc=encodeURIComponent(city);
+  const date=plan.confirmedDate||plan.dates?.[0]||'';
+  const dateEnc=encodeURIComponent(date);
+  return(<div style={{marginTop:'16px',display:'flex',flexDirection:'column',gap:'10px'}}>
+    {/* Accommodation */}
+    <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px'}}>
+      <div style={{fontSize:'13px',fontWeight:'600',color:c.T,marginBottom:'10px'}}>🏨 {isEs?'¿Te quedas a dormir?':'Staying overnight?'}</div>
+      <div style={{fontSize:'12px',color:c.M2,marginBottom:'10px',lineHeight:1.5}}>{isEs?'Si la noche se alarga o vienes de lejos — opciones de alojamiento cerca:':'If the night runs long or you're travelling far — accommodation options nearby:'}</div>
+      <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
+        {[{n:'Booking',u:`https://www.booking.com/search.html?ss=${cityEnc}&checkin=${date}`,i:'🔵'},{n:'Airbnb',u:`https://www.airbnb.com/s/${cityEnc}/homes?checkin=${date}`,i:'🏠'},{n:'Travala',u:`https://www.travala.com/hotels?destination=${cityEnc}`,i:'💎'},{n:'Hotels.com',u:`https://www.hotels.com/search.do?destination=${cityEnc}&startDate=${date}`,i:'🏨'}].map(h=><a key={h.n} href={h.u} target="_blank" rel="noreferrer" style={{padding:'7px 10px',background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'8px',textDecoration:'none',fontSize:'12px',color:c.T,fontWeight:'500'}}>{h.i} {h.n}</a>)}
+      </div>
+    </div>
+    {/* Smart after-plan tips */}
+    <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px'}}>
+      <div style={{fontSize:'13px',fontWeight:'600',color:c.T,marginBottom:'10px'}}>💡 {isEs?'Si la noche se alarga...':'If the night runs on...'}</div>
+      <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
+        {[
+          {icon:'🚕',text:isEs?'Si bebes, pide un taxi de antemano — los precios suben de noche.':'If you're drinking, book a taxi in advance — prices surge at night.',link:'https://m.uber.com/',linkText:'Uber'},
+          {icon:'🍔',text:isEs?'¿Hamburguesa de madrugada? Los mejores sitios siempre tienen cola.':'Late night burger? The best spots always have a queue.',link:null,linkText:null},
+          {icon:'🎵',text:isEs?'¿Continuar la fiesta? Busca salas o bares de copas cercanos.':'Continue the party? Find nearby clubs or bars.',link:`https://www.google.com/maps/search/nightclub+near+${cityEnc}`,linkText:'Google Maps'},
+          {icon:'🌅',text:isEs?'Si amaneces fuera, el desayuno es sagrado.':'If you're out till sunrise, breakfast is sacred.',link:`https://www.google.com/maps/search/breakfast+near+${cityEnc}`,linkText:'Google Maps'},
+          plan.mode==='intimate'?{icon:'🌹',text:isEs?'Una noche especial merece el mejor alojamiento.':'A special night deserves the best accommodation.',link:`https://www.airbnb.com/s/${cityEnc}/homes?room_types[]=Entire+home/apt&checkin=${date}`,linkText:'Airbnb'}:null,
+        ].filter(Boolean).map((tip,i)=><div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',padding:'8px 0',borderBottom:i<4?`1px solid ${c.BD}`:'none'}}><span style={{fontSize:'18px',flexShrink:0}}>{tip.icon}</span><div><div style={{fontSize:'13px',color:c.T,lineHeight:1.5}}>{tip.text}</div>{tip.link&&<a href={tip.link} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:mc,textDecoration:'none',fontWeight:'600'}}>{tip.linkText} →</a>}</div></div>)}
+      </div>
+    </div>
   </div>);
 }
 
@@ -1145,7 +1446,7 @@ const getGroups=()=>ls.get('q_groups',[]);
 const saveGroups=g=>ls.set('q_groups',g);
 
 function SavedGroups({plan, c, lang}){
-  const isEs=lang==='es'; const mc=MC[plan.mode||'social']||c.A;
+  const isEs=lang==='es'; const mc=getMC(plan.mode,c);
   const[groups,setGroups]=useState(getGroups());
   const[open,setOpen]=useState(false);
   const[newName,setNewName]=useState('');
@@ -1228,7 +1529,7 @@ function ExpenseSplitter({plan, rs, mc, c, lang}){
     </div>}
     {expenses.map(e=><div key={e.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',padding:'8px 0',borderBottom:`1px solid ${c.BD}`,fontSize:'13px'}}>
       <div><span style={{color:mc,fontWeight:'600'}}>{e.who}</span><span style={{color:c.M2}}> — {e.what}</span></div>
-      <div style={{display:'flex',gap:'8px',alignItems:'center'}}><span style={{color:c.T,fontWeight:'700'}}>{e.amt.toFixed(2)}€</span><button onClick={()=>rem(e.id)} style={{background:'none',border:'none',color:c.M,cursor:'pointer',fontSize:'14px',padding:'0'}}>×</button></div>
+      <div style={{display:'flex',gap:'8px',alignItems:'center'}}><span style={{color:c.T,fontWeight:'700'}}>{e.amt.toFixed(2)}€</span><button onClick={()=>rem(e.id)} title={lang==='es'?'Eliminar gasto':'Remove expense'} style={{background:'none',border:'none',color:c.M,cursor:'pointer',fontSize:'14px',padding:'0'}}>×</button></div>
     </div>)}
     {expenses.length>0&&<>
       <div style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderTop:`1px solid ${c.BD}`,marginTop:'4px',fontSize:'14px'}}><span style={{color:c.M2}}>{isEs?'Total':'Total'}</span><span style={{color:mc,fontWeight:'800'}}>{total.toFixed(2)}€</span></div>
@@ -1305,7 +1606,7 @@ function OutfitCard({dressCode, dressNote, city, date, mc, c, lang, t}){
 // ─── RESULTS ─────────────────────────────────────────
 function Results({plan:ip,onBack,isOrg,c,lang}){
   const[plan,setPlan]=useState(ip);const t=T[lang];const isEs=lang==='es';
-  const mc=MC[plan.mode||'social']||c.A;
+  const mc=getMC(plan.mode,c);
   const[tab,setTab]=useState('who');const[rs,setRs]=useState([]);const[ldg,setL]=useState(true);
   const[conf,setConf]=useState(false);const[remSent,setRem]=useState(false);
   const[payModal,setPay]=useState(false);const[payAmt,setPayAmt]=useState(0);
@@ -1376,23 +1677,23 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
       <div style={{display:'flex',justifyContent:'space-between',alignItems:'flex-start',marginBottom:'6px'}}>
         <div><h2 style={{fontFamily:"'Syne',serif",fontSize:'24px',fontWeight:'800',color:c.T,margin:'0 0 4px'}}>{plan.name}</h2><ModeBadge mode={plan.mode||'social'} lang={lang} c={c}/></div>
         <div style={{display:'flex',gap:'5px'}}>
-          <button onClick={()=>{const url=location.href.split('?')[0]+'?code='+plan.id;const txt=isEs?`¡Responde al plan *${plan.name}*!\n${url}`:`Respond to *${plan.name}*!\n${url}`;window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');}} style={{background:'#25D36618',border:'1px solid #25D36640',borderRadius:'8px',padding:'6px 10px',color:'#25D366',cursor:'pointer',fontSize:'13px'}}>💬</button>
+          <button onClick={()=>{const url=location.href.split('?')[0]+'?code='+plan.id;const txt=isEs?`¡Responde al plan *${plan.name}*!\n${url}`:`Respond to *${plan.name}*!\n${url}`;window.open('https://wa.me/?text='+encodeURIComponent(txt),'_blank');}} title={isEs?'Compartir por WhatsApp':'Share on WhatsApp'} style={{background:'#25D36618',border:'1px solid #25D36640',borderRadius:'8px',padding:'6px 10px',color:'#25D366',cursor:'pointer',fontSize:'13px'}}>💬</button>
           <button onClick={()=>{const url=location.href.split('?')[0]+'?code='+plan.id;navigator.clipboard?.writeText(url);}} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M2,cursor:'pointer',fontSize:'12px',padding:'6px 10px',borderRadius:'8px',fontFamily:'inherit'}} title={isEs?'Copiar link':'Copy link'}>🔗</button>
           {typeof Notification!=='undefined'&&Notification.permission==='default'&&<button onClick={()=>Notification.requestPermission()} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M2,cursor:'pointer',fontSize:'12px',padding:'6px 10px',borderRadius:'8px',fontFamily:'inherit'}} title={isEs?'Activar notificaciones':'Enable notifications'}>🔔</button>}
-          <button onClick={refresh} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M2,cursor:'pointer',fontSize:'12px',padding:'6px 10px',borderRadius:'8px',fontFamily:'inherit'}}>↻</button>
+          <button onClick={refresh} title={isEs?'Actualizar respuestas':'Refresh responses'} style={{background:'none',border:`1px solid ${c.BD}`,color:c.M2,cursor:'pointer',fontSize:'12px',padding:'6px 10px',borderRadius:'8px',fontFamily:'inherit'}}>↻</button>
         </div>
       </div>
       <div style={{fontSize:'13px',color:c.M2,margin:'8px 0 12px'}}>{total} {total===1?t.responses:t.responsesP} · <span style={{color:mc,fontWeight:'700',letterSpacing:'.1em'}}>{plan.id}</span>{city&&<span> · 📍 {city}</span>}</div>
       {plan.confirmedDate&&<div style={{background:`${mc}15`,border:`1px solid ${mc}50`,borderRadius:'12px',padding:'14px 16px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
         <div><div style={{fontSize:'11px',color:mc,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>{t.confirmedDate}</div><div style={{fontSize:'15px',color:c.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate,lang)}</div></div>
         <div style={{display:'flex',gap:'6px',flexWrap:'wrap'}}>
-          {isOrgRef.current&&<button onClick={waConfirm} style={{background:'#25D366',border:'none',borderRadius:'10px',padding:'8px 12px',color:'#fff',fontSize:'12px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>{t.notifyGrp}</button>}
-          <button onClick={waRem} style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'8px 12px',color:remSent?mc:c.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{remSent?t.remSent:t.sendRem}</button>
+          {isOrgRef.current&&<button onClick={waConfirm} title={isEs?'Enviar mensaje de WhatsApp al grupo con la fecha confirmada':'Send WhatsApp message to the group with the confirmed date'} style={{background:'#25D366',border:'none',borderRadius:'10px',padding:'8px 12px',color:'#fff',fontSize:'12px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit'}}>{t.notifyGrp}</button>}
+          <button onClick={waRem} title={isEs?'Enviar un recordatorio del plan por WhatsApp':'Send a plan reminder via WhatsApp'} style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'8px 12px',color:remSent?mc:c.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{remSent?t.remSent:t.sendRem}</button>
           <button onClick={()=>generateICS(plan,lang)} style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'8px 10px',color:c.M2,fontSize:'12px',cursor:'pointer',fontFamily:'inherit'}} title={isEs?'Añadir al calendario':'Add to calendar'}>📅</button>
         </div>
       </div>}
       {isOrgRef.current&&<div style={{marginBottom:'16px',display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
-        <button onClick={togglePub} style={{padding:'8px 16px',background:plan.isPublic?`${mc}15`:c.CARD,border:`1px solid ${plan.isPublic?mc+'50':c.BD}`,borderRadius:'10px',color:plan.isPublic?mc:c.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{plan.isPublic?t.isPublicLbl:t.makePublic}</button>
+        <button onClick={togglePub} title={plan.isPublic?(isEs?'El plan aparece en Descubrir — haz clic para hacerlo privado':'Plan is visible in Discover — click to make it private'):(isEs?'Haz el plan público para que aparezca en Descubrir':'Make the plan public so it appears in Discover')} style={{padding:'8px 16px',background:plan.isPublic?`${mc}15`:c.CARD,border:`1px solid ${plan.isPublic?mc+'50':c.BD}`,borderRadius:'10px',color:plan.isPublic?mc:c.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{plan.isPublic?t.isPublicLbl:t.makePublic}</button>
       </div>}
       {/* Smart summary for organizer */}
       {isOrgRef.current&&!ldg&&total>0&&!plan.confirmedDate&&(()=>{
@@ -1441,7 +1742,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
                 <div style={{display:'flex',alignItems:'center',gap:'8px'}}>
                   <span style={{fontSize:'12px',color:'#22c55e',fontWeight:'600'}}>✅ {ny}</span>
                   {nm>0&&<span style={{fontSize:'12px',color:'#f59e0b',fontWeight:'600'}}>🤔 {nm}</span>}
-                  {isOrgRef.current&&!plan.confirmedDate&&d!==best&&(ny+nm)>0&&<button onClick={()=>confirmDate(d)} style={{background:'none',border:'none',color:c.M2,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',textDecoration:'underline'}}>{t.confirmSmall}</button>}
+                  {isOrgRef.current&&!plan.confirmedDate&&d!==best&&(ny+nm)>0&&<button onClick={()=>confirmDate(d)} title={isEs?'Confirmar esta fecha para todo el grupo':'Confirm this date for the whole group'} style={{background:'none',border:'none',color:c.M2,fontSize:'11px',cursor:'pointer',fontFamily:'inherit',textDecoration:'underline'}}>{t.confirmSmall}</button>}
                 </div>
               </div>
               <div style={{height:'7px',background:c.BD,borderRadius:'4px',overflow:'hidden',position:'relative'}}>
@@ -1554,7 +1855,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
       {!ldg&&tab==='ir'&&<>
         {fs?<>
           <Card c={c} style={{marginBottom:'12px'}}><Lbl c={c}>{t.dest}</Lbl><div style={{fontSize:'15px',color:c.T,fontWeight:'600'}}>{fs.name}</div>{fs.address&&<div style={{fontSize:'13px',color:c.M2}}>{fs.address}</div>}</Card>
-          <TransportPanel to={fs} c={c} lang={lang}/>
+          <TransportPanel to={fs} planCity={city} c={c} lang={lang}/>
           {rs.filter(r=>r.how).length>0&&<><HR c={c}/><Lbl c={c}>{t.howEach}</Lbl>{rs.filter(r=>r.how).map((r,i)=><div key={i} style={{display:'flex',justifyContent:'space-between',padding:'10px 0',borderBottom:`1px solid ${c.BD}`,fontSize:'14px'}}><span style={{color:c.T}}>{r.name}</span><span style={{color:c.M2}}>{howL(r.how)}</span></div>)}</>}
         </>:<Card c={c} style={{textAlign:'center',padding:'28px'}}><div style={{fontSize:'32px',marginBottom:'8px'}}>📍</div><div style={{color:c.M2,fontSize:'14px'}}>{t.noStops}</div></Card>}
       </>}
@@ -1595,6 +1896,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
           </div>
           <div style={{fontSize:'12px',color:c.M2,textAlign:'center',marginTop:'8px'}}>{isEs?'Haz screenshot y comparte 📱':'Screenshot and share 📱'}</div>
         </Card>}
+        <AfterPlanSuggestions plan={plan} c={c} lang={lang}/>
         {/* Suggested dates from guests */}
         {isOrgRef.current&&rs.some(r=>r.altDate)&&<Card c={c} style={{border:'1px solid #f59e0b30',background:'#f59e0b06'}}>
           <Lbl c={c}>📅 {isEs?'Fechas sugeridas por invitados':'Dates suggested by guests'}</Lbl>
@@ -1612,7 +1914,13 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
 // ─── APP ─────────────────────────────────────────────
 function App(){
   const[theme,setTheme]=useState(()=>ls.get('q_theme',null)||getSysTheme());
-  const[lang,setLang]=useState(()=>ls.get('q_lang','es'));
+  const[lang,setLang]=useState(()=>{
+    const saved=ls.get('q_lang',null);
+    if(saved)return saved;
+    const bl=(navigator.language||'es').slice(0,2).toLowerCase();
+    const supported=['es','en','pt','fr','de','it'];
+    return supported.includes(bl)?bl:'es';
+  });
   const[screen,setScreen]=useState('home');
   const[plan,setPlan]=useState(null);
   const[isOrg,setIsOrg]=useState(false);
@@ -1623,7 +1931,9 @@ function App(){
   useEffect(()=>{applyTheme(theme);},[theme]);
   useEffect(()=>{setToastFn(msg=>{setToast(msg);setTimeout(()=>setToast(null),4000);});},[]);
   const tgTheme=()=>setTheme(t=>{const n=t==='dark'?'light':'dark';applyTheme(n);ls.set('q_theme',n);return n;});
-  const tgLang=()=>setLang(l=>{const n=l==='es'?'en':'es';ls.set('q_lang',n);return n;});
+  const LANGS=['es','en','pt','fr','de','it'];
+  const LANG_FLAGS={es:'🇪🇸',en:'🇬🇧',pt:'🇵🇹',fr:'🇫🇷',de:'🇩🇪',it:'🇮🇹'};
+  const tgLang=()=>setLang(l=>{const idx=LANGS.indexOf(l);const n=LANGS[(idx+1)%LANGS.length];ls.set('q_lang',n);return n;});
   const doneOnb=()=>{ls.set('q_onboarded',true);setShowOnb(false);};
   useEffect(()=>{
     const code=new URLSearchParams(location.search).get('code');
@@ -1635,7 +1945,7 @@ function App(){
   const handleJoin=async code=>{const p=await loadPlan(code);if(p){setPlan(p);setIsOrg(false);setScreen('preview');ls.set('q_state',{screen:'preview',planId:p.id,isOrg:false});return true;}return false;};
   const handleFromProfile=async id=>{const p=await loadPlan(id);if(p){const mine=getMyPlans().find(x=>x.id===id);nav('results',p,mine?.role==='organizer');}};
   const handleDiscoverJoin=async id=>{const p=await loadPlan(id);if(p){setPlan(p);setIsOrg(false);setScreen('preview');}};
-  const mc=plan?.mode?MC[plan.mode]||c.A:c.A;
+  const mc=plan?.mode?getMC(plan.mode,c):c.A;
   const noNav=['home','create','select-mode','profile','discover','preview'];
   if(showOnb)return<Onboarding onDone={doneOnb} c={c} lang={lang}/>;
   return(<div style={{minHeight:'100vh',background:c.BG,color:c.T,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
@@ -1644,8 +1954,8 @@ function App(){
       <div onClick={()=>nav('home')} style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'22px',cursor:'pointer',color:c.T,letterSpacing:'-.02em'}}>queda<span style={{color:c.A}}>.</span></div>
       <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
         {plan&&!noNav.includes(screen)&&<span style={{color:mc,fontWeight:'800',fontSize:'12px',letterSpacing:'.1em'}}>{plan.id}</span>}
-        <button onClick={tgLang} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'5px 8px',cursor:'pointer',fontSize:'16px'}}>{lang==='es'?'🇬🇧':'🇪🇸'}</button>
-        <button onClick={tgTheme} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',fontSize:'15px'}}>{theme==='dark'?'☀️':'🌙'}</button>
+        <button onClick={tgLang} title={lang==='es'?'Cambiar idioma':'Change language'} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'5px 8px',cursor:'pointer',fontSize:'16px'}}>{LANG_FLAGS[lang]||'🌐'}</button>
+        <button onClick={tgTheme} title={theme==='dark'?(lang==='es'?'Modo claro':'Light mode'):(lang==='es'?'Modo oscuro':'Dark mode')} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',fontSize:'15px'}}>{theme==='dark'?'☀️':'🌙'}</button>
       </div>
     </div>
     {screen==='home'&&<Home onCreate={()=>nav('select-mode')} onJoin={handleJoin} onProfile={()=>nav('profile')} onDiscover={()=>nav('discover')} c={c} lang={lang}/>}
