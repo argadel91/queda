@@ -698,7 +698,7 @@ function DiscoverScreen({onBack,onJoin,c,lang}){
 // ══════════════════════════
 // HOME
 // ══════════════════════════
-function HomeScreen({onCreate,onJoin,onProfile,onDiscover,onBusiness,onPremium,c,lang,toggleLang,toggleTheme,theme,user,premium}){
+function HomeScreen({onCreate,onJoin,onProfile,onDiscover,c,lang,toggleLang,toggleTheme,theme,user}){
   const col=c; const t=T[lang];
   const[code,setCode]=useState('');const[err,setErr]=useState('');const[loading,setL]=useState(false);
   const go=async()=>{setErr('');setL(true);const ok=await onJoin(code.trim().toUpperCase());setL(false);if(!ok)setErr(t.notFound);};
@@ -709,13 +709,9 @@ function HomeScreen({onCreate,onJoin,onProfile,onDiscover,onBusiness,onPremium,c
       <p style={{color:col.M2,fontSize:'15px',lineHeight:1.7}}>{t.sub}</p>
     </div>
     <Btn onClick={onCreate} full style={{padding:'16px',fontSize:'16px',marginBottom:'10px'}} c={col}>{t.create}</Btn>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'8px'}}>
+    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'16px'}}>
       <Btn onClick={onProfile} v="secondary" full style={{padding:'12px',fontSize:'14px'}} c={col}>{t.myPlans}</Btn>
       <Btn onClick={onDiscover} v="secondary" full style={{padding:'12px',fontSize:'14px'}} c={col}>{t.discover}</Btn>
-    </div>
-    <div style={{display:'grid',gridTemplateColumns:'1fr 1fr',gap:'8px',marginBottom:'16px'}}>
-      <Btn onClick={onBusiness} v="secondary" full style={{padding:'12px',fontSize:'13px'}} c={col}>🏪 {lang==="es"?"Comercios":"Businesses"}</Btn>
-      <Btn onClick={onPremium} v="secondary" full style={{padding:'12px',fontSize:'13px',color:premium?.active?col.A:col.M2}} c={col}>⭐ {premium?.active?"Pro activo":"queda. Pro"}</Btn>
     </div>
     <div style={{display:'flex',alignItems:'center',gap:'12px',marginBottom:'14px'}}><div style={{flex:1,height:'1px',background:col.BD}}/><span style={{color:col.M,fontSize:'11px',fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase'}}>{t.orJoin}</span><div style={{flex:1,height:'1px',background:col.BD}}/></div>
     <div style={{display:'flex',gap:'8px'}}>
@@ -968,7 +964,7 @@ function RespondScreen({plan,onBack,onDone,c,lang:appLang}){
   };
   const budget=plan.stops?.reduce((s,p2)=>s+(parseFloat(p2.cost)||0),0)||0;
   const giftPer=plan.gift?.price?parseFloat(plan.gift.price):0;
-  if(done)return(<div style={{padding:'48px 24px',maxWidth:'420px',margin:'0 auto',textAlign:'center'}}><div style={{fontSize:'64px',marginBottom:'20px'}}>✅</div><h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.A,marginBottom:'10px'}}>{t.savedTitle}</h2><p style={{color:col.M2,marginBottom:'0'}}>{t.savedSub}</p><ViralCTA c={col} lang={lang} onCreate={onCreateOwn}/></div>);
+  if(done)return(<div style={{padding:'80px 24px',maxWidth:'420px',margin:'0 auto',textAlign:'center'}}><div style={{fontSize:'64px',marginBottom:'20px'}}>✅</div><h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:col.A,marginBottom:'10px'}}>{t.savedTitle}</h2><p style={{color:col.M2}}>{t.savedSub}</p></div>);
   return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
     <Back onClick={onBack} c={col} label={t.back}/>
     {plan.confirmedDate&&<div style={{background:`${col.A}15`,border:`1px solid ${col.A}50`,borderRadius:'12px',padding:'14px 16px',marginBottom:'16px',display:'flex',gap:'10px',alignItems:'center'}}><div style={{fontSize:'20px'}}>📌</div><div><div style={{fontSize:'11px',color:col.A,fontWeight:'700',letterSpacing:'.08em',textTransform:'uppercase',marginBottom:'2px'}}>{t.confirmedDate}</div><div style={{fontSize:'15px',color:col.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate,planLang)}</div></div></div>}
@@ -1221,772 +1217,62 @@ function ResultsScreen({plan:ip,onBack,isOrg,c,lang}){
 // ══════════════════════════
 // APP
 // ══════════════════════════
+function App(){
+  const[theme,setTheme]=useState(()=>ls.get('q_theme',null)||getSysTheme());
+  const[lang,setLang]=useState(()=>ls.get('q_lang','es'));
+  const[screen,setScreen]=useState('home');
+  const[plan,setPlan]=useState(null);
+  const[isOrg,setIsOrg]=useState(false);
+  const[user,setUser]=useState(()=>ls.get('q_user',null));
+  const c=useMemo(()=>C(theme),[theme]);
 
-// ══════════════════════════════════════════════════════
-// PWA MANIFEST (installed app on mobile)
-// ══════════════════════════════════════════════════════
-(function(){
-  const manifest = {
-    name: 'queda.',
-    short_name: 'queda.',
-    description: 'Planes sin caos',
-    start_url: '/',
-    display: 'standalone',
-    background_color: '#0A0A0A',
-    theme_color: '#0A0A0A',
-    icons: [{ src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' fill='%230A0A0A' rx='20'/><text y='.9em' font-size='70' x='15'>📅</text></svg>", sizes: '192x192', type: 'image/svg+xml' }]
-  };
-  const blob = new Blob([JSON.stringify(manifest)], {type:'application/json'});
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('link');
-  link.rel = 'manifest'; link.href = url;
-  document.head.appendChild(link);
-  const meta = document.createElement('meta');
-  meta.name = 'apple-mobile-web-app-capable'; meta.content = 'yes';
-  document.head.appendChild(meta);
-  const meta2 = document.createElement('meta');
-  meta2.name = 'apple-mobile-web-app-title'; meta2.content = 'queda.';
-  document.head.appendChild(meta2);
-})();
+  useEffect(()=>{applyTheme(theme);},[theme]);
+  const toggleTheme=()=>setTheme(t=>{const n=t==='dark'?'light':'dark';applyTheme(n);ls.set('q_theme',n);return n;});
+  const toggleLang=()=>setLang(l=>{const n=l==='es'?'en':'es';ls.set('q_lang',n);return n;});
 
-// ══════════════════════════════════════════════════════
-// CHAT — Supabase Realtime
-// ══════════════════════════════════════════════════════
-const sendMessage = async (planId, name, text) => {
-  try {
-    await db.from('messages').insert({ plan_id: planId, name, text, at: new Date().toISOString() });
-  } catch(e) { console.log('msg:', e); }
-};
-const loadMessages = async planId => {
-  try {
-    const { data } = await db.from('messages').select('*').eq('plan_id', planId).order('at', { ascending: true }).limit(100);
-    return data || [];
-  } catch { return []; }
-};
+  useEffect(()=>{
+    const code=new URLSearchParams(location.search).get('code');
+    if(code){loadPlan(code).then(p=>{if(p){setPlan(p);setIsOrg(false);setScreen('respond');}});return;}
+    const saved=ls.get('q_state',null);
+    if(saved?.planId){loadPlan(saved.planId).then(p=>{if(p){setPlan(p);setIsOrg(saved.isOrg||false);setScreen(saved.screen||'home');}});}
+  },[]);
 
-function ChatPanel({ planId, myName, c, lang }) {
-  const col = c;
-  const [messages, setMessages] = useState([]);
-  const [text, setText] = useState('');
-  const [name, setName] = useState(myName || ls.get('q_chatname', ''));
-  const [sending, setSending] = useState(false);
-  const bottomRef = useRef(null);
-  const channelRef = useRef(null);
-
-  useEffect(() => {
-    loadMessages(planId).then(setMessages);
-    // Realtime subscription
-    channelRef.current = db
-      .channel(`chat:${planId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `plan_id=eq.${planId}` },
-        payload => setMessages(prev => [...prev, payload.new])
-      )
-      .subscribe();
-    return () => { channelRef.current?.unsubscribe(); };
-  }, [planId]);
-
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
-
-  const send = async () => {
-    if (!text.trim() || !name.trim() || sending) return;
-    setSending(true);
-    ls.set('q_chatname', name);
-    await sendMessage(planId, name.trim(), text.trim());
-    setText('');
-    setSending(false);
+  const nav=(s,p=null,org=false)=>{
+    setScreen(s);
+    if(p)setPlan(p);
+    setIsOrg(org);
+    if(s!=='home')ls.set('q_state',{screen:s,planId:p?.id||plan?.id,isOrg:org});
+    else ls.set('q_state',{});
   };
 
-  const fmtTime = iso => {
-    const d = new Date(iso);
-    return d.toLocaleTimeString(lang === 'en' ? 'en-GB' : 'es-ES', { hour: '2-digit', minute: '2-digit' });
-  };
+  const handleJoin=async code=>{const p=await loadPlan(code);if(p){nav('respond',p,false);return true;}return false;};
+  const handleOpenFromProfile=async id=>{const p=await loadPlan(id);if(p){const mine=getMyPlans().find(x=>x.id===id);nav('results',p,mine?.role==='organizer');}};
+  const handleDiscoverJoin=async id=>{const p=await loadPlan(id);if(p){nav('respond',p,false);}};
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '420px' }}>
-      {!myName && (
-        <div style={{ marginBottom: '10px' }}>
-          <input value={name} onChange={e => setName(e.target.value)} placeholder={lang === 'es' ? 'Tu nombre en el chat' : 'Your name in chat'}
-            style={{ background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '10px', padding: '10px 14px', color: col.T, fontSize: '14px', fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-        </div>
-      )}
-      <div style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px', paddingBottom: '8px' }}>
-        {messages.length === 0 && (
-          <div style={{ textAlign: 'center', color: col.M, fontSize: '13px', padding: '32px 0' }}>
-            {lang === 'es' ? 'Sé el primero en escribir algo 👋' : 'Be the first to say something 👋'}
-          </div>
-        )}
-        {messages.map((m, i) => {
-          const isMe = m.name === name;
-          return (
-            <div key={i} style={{ display: 'flex', flexDirection: 'column', alignItems: isMe ? 'flex-end' : 'flex-start' }}>
-              {!isMe && <div style={{ fontSize: '11px', color: col.M2, marginBottom: '2px', paddingLeft: '4px' }}>{m.name}</div>}
-              <div style={{ maxWidth: '80%', padding: '10px 14px', borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px', background: isMe ? col.A : col.CARD2, color: isMe ? '#0A0A0A' : col.T, fontSize: '14px', lineHeight: 1.5, wordBreak: 'break-word' }}>
-                {m.text}
-              </div>
-              <div style={{ fontSize: '10px', color: col.M, marginTop: '2px', paddingRight: isMe ? '4px' : '0', paddingLeft: isMe ? '0' : '4px' }}>{fmtTime(m.at)}</div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
-      </div>
-      <div style={{ display: 'flex', gap: '8px', paddingTop: '10px', borderTop: `1px solid ${col.BD}` }}>
-        <input value={text} onChange={e => setText(e.target.value)} onKeyDown={e => e.key === 'Enter' && !e.shiftKey && send()} placeholder={lang === 'es' ? 'Escribe un mensaje...' : 'Write a message...'}
-          style={{ flex: 1, background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '20px', padding: '10px 16px', color: col.T, fontSize: '14px', fontFamily: 'inherit', outline: 'none' }} />
-        <button onClick={send} disabled={!text.trim() || !name.trim() || sending}
-          style={{ width: '40px', height: '40px', borderRadius: '50%', border: 'none', background: col.A, color: '#0A0A0A', cursor: 'pointer', fontSize: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, opacity: (!text.trim() || !name.trim()) ? 0.3 : 1 }}>
-          →
-        </button>
+  const t=T[lang];
+  const noNav=['home','create','profile','discover'];
+
+  return(<div style={{minHeight:'100vh',background:c.BG,color:c.T,fontFamily:"'DM Sans',system-ui,sans-serif"}}>
+    <div style={{borderBottom:`1px solid ${c.BD}`,padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:c.BG+'F0',backdropFilter:'blur(10px)',zIndex:10}}>
+      <div onClick={()=>nav('home')} style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'22px',cursor:'pointer',color:c.T,letterSpacing:'-.02em'}}>queda<span style={{color:c.A}}>.</span></div>
+      <div style={{display:'flex',alignItems:'center',gap:'6px'}}>
+        {plan&&!noNav.includes(screen)&&<span style={{fontSize:'12px',color:c.M}}>código: <span style={{color:c.A,fontWeight:'800',letterSpacing:'.1em'}}>{plan.id}</span></span>}
+        {user&&<div style={{width:'28px',height:'28px',borderRadius:'50%',background:`${c.A}25`,border:`1px solid ${c.A}50`,display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',fontWeight:'800',color:c.A,cursor:'pointer'}} onClick={()=>nav('profile')}>{user.name?.charAt(0).toUpperCase()||'?'}</div>}
+        <button onClick={toggleLang} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'5px 10px',cursor:'pointer',fontSize:'12px',fontWeight:'700',color:c.M2}}>{lang==='es'?'EN':'ES'}</button>
+        <button onClick={toggleTheme} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',fontSize:'15px'}}>{theme==='dark'?'☀️':'🌙'}</button>
       </div>
     </div>
-  );
+
+    {screen==='home'&&<HomeScreen onCreate={()=>nav('create')} onJoin={handleJoin} onProfile={()=>nav('profile')} onDiscover={()=>nav('discover')} c={c} lang={lang} toggleLang={toggleLang} toggleTheme={toggleTheme} theme={theme} user={user}/>}
+    {screen==='profile'&&<ProfileScreen onBack={()=>nav('home')} onOpen={handleOpenFromProfile} c={c} lang={lang} user={user}/>}
+    {screen==='discover'&&<DiscoverScreen onBack={()=>nav('home')} onJoin={handleDiscoverJoin} c={c} lang={lang}/>}
+    {screen==='create'&&<CreateScreen onBack={()=>nav('home')} onCreated={p=>{nav('share',p,true);}} c={c} lang={lang} user={user}/>}
+    {screen==='share'&&plan&&<ShareScreen plan={plan} onViewResults={()=>nav('results',plan,isOrg)} onBack={()=>nav('home')} c={c} lang={lang}/>}
+    {screen==='respond'&&plan&&<RespondScreen plan={plan} onBack={()=>nav('home')} onDone={()=>nav('results',plan,false)} c={c} lang={lang}/>}
+    {screen==='results'&&plan&&<ResultsScreen plan={plan} onBack={()=>nav(isOrg?'share':'home',plan,isOrg)} isOrg={isOrg} c={c} lang={lang}/>}
+  </div>);
 }
-
-// ══════════════════════════════════════════════════════
-// VOTING — organizer creates options, group votes
-// ══════════════════════════════════════════════════════
-const saveVote = async (planId, userId, optionId) => {
-  try {
-    await db.from('votes').upsert({ plan_id: planId, user_id: userId, option_id: optionId });
-  } catch(e) { console.log('vote:', e); }
-};
-const loadVotes = async planId => {
-  try {
-    const { data } = await db.from('votes').select('*').eq('plan_id', planId);
-    return data || [];
-  } catch { return []; }
-};
-
-function VotingPanel({ plan, onUpdatePlan, isOrg, myName, c, lang }) {
-  const col = c;
-  const [votes, setVotes] = useState([]);
-  const [loading, setL] = useState(true);
-  const [newOption, setNewOption] = useState('');
-  const [myVote, setMyVote] = useState(null);
-  const userId = myName || ls.get('q_chatname', 'anon');
-
-  useEffect(() => {
-    loadVotes(plan.id).then(v => {
-      setVotes(v);
-      const mine = v.find(x => x.user_id === userId);
-      if (mine) setMyVote(mine.option_id);
-      setL(false);
-    });
-  }, [plan.id]);
-
-  const options = plan.voteOptions || [];
-
-  const addOption = async () => {
-    if (!newOption.trim()) return;
-    const opt = { id: genId(), text: newOption.trim(), addedBy: userId, at: new Date().toISOString() };
-    const updated = { ...plan, voteOptions: [...options, opt] };
-    await updatePlan(updated);
-    onUpdatePlan(updated);
-    setNewOption('');
-  };
-
-  const vote = async optId => {
-    setMyVote(optId);
-    await saveVote(plan.id, userId, optId);
-    const updated = votes.filter(v => v.user_id !== userId);
-    setVotes([...updated, { plan_id: plan.id, user_id: userId, option_id: optId }]);
-  };
-
-  const countFor = optId => votes.filter(v => v.option_id === optId).length;
-  const maxVotes = Math.max(...options.map(o => countFor(o.id)), 1);
-
-  if (loading) return <div style={{ textAlign: 'center', color: col.M, padding: '32px' }}>...</div>;
-
-  return (
-    <div>
-      {options.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '32px', color: col.M2, fontSize: '14px' }}>
-          {lang === 'es' ? 'No hay opciones para votar todavía.' : 'No options to vote on yet.'}
-          {isOrg && <div style={{ marginTop: '8px', fontSize: '13px', color: col.M }}>{lang === 'es' ? 'Añade opciones abajo.' : 'Add options below.'}</div>}
-        </div>
-      ) : (
-        <div style={{ marginBottom: '16px' }}>
-          {options.map(opt => {
-            const n = countFor(opt.id);
-            const pct = (n / maxVotes) * 100;
-            const isWin = n === maxVotes && n > 0;
-            const isMe = myVote === opt.id;
-            return (
-              <div key={opt.id} onClick={() => vote(opt.id)} style={{ marginBottom: '10px', cursor: 'pointer' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px', alignItems: 'center' }}>
-                  <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
-                    <span style={{ fontSize: '14px', color: isMe ? col.A : col.T, fontWeight: isMe ? '700' : '400' }}>{opt.text}</span>
-                    {isWin && n > 0 && <span style={{ fontSize: '10px', background: col.A, color: '#0A0A0A', padding: '1px 7px', borderRadius: '20px', fontWeight: '800' }}>
-                      {lang === 'es' ? 'GANANDO' : 'WINNING'}
-                    </span>}
-                    {isMe && <span style={{ fontSize: '11px', color: col.A }}>✓ {lang === 'es' ? 'tu voto' : 'your vote'}</span>}
-                  </div>
-                  <span style={{ fontSize: '13px', color: isWin ? col.A : col.M2, fontWeight: isWin ? '700' : '400' }}>{n}</span>
-                </div>
-                <div style={{ height: '7px', background: col.BD, borderRadius: '4px', overflow: 'hidden' }}>
-                  <div style={{ height: '100%', width: `${pct}%`, background: isWin ? col.A : col.CARD2, borderRadius: '4px', transition: 'width .4s' }} />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-      {(isOrg || options.length < 10) && (
-        <div style={{ display: 'flex', gap: '8px' }}>
-          <input value={newOption} onChange={e => setNewOption(e.target.value)} onKeyDown={e => e.key === 'Enter' && addOption()}
-            placeholder={lang === 'es' ? 'Añadir opción...' : 'Add option...'}
-            style={{ flex: 1, background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '10px', padding: '10px 14px', color: col.T, fontSize: '14px', fontFamily: 'inherit', outline: 'none' }} />
-          <button onClick={addOption} disabled={!newOption.trim()} style={{ background: col.A, border: 'none', borderRadius: '10px', padding: '10px 16px', color: '#0A0A0A', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', opacity: !newOption.trim() ? 0.3 : 1 }}>+</button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════
-// PHOTO ALBUM
-// ══════════════════════════════════════════════════════
-const savePhoto = async (planId, name, url, caption) => {
-  try {
-    await db.from('photos').insert({ plan_id: planId, name, url, caption, at: new Date().toISOString() });
-  } catch(e) { console.log('photo:', e); }
-};
-const loadPhotos = async planId => {
-  try {
-    const { data } = await db.from('photos').select('*').eq('plan_id', planId).order('at', { ascending: false });
-    return data || [];
-  } catch { return []; }
-};
-
-function PhotoAlbum({ planId, myName, c, lang }) {
-  const col = c;
-  const [photos, setPhotos] = useState([]);
-  const [loading, setL] = useState(true);
-  const [url, setUrl] = useState('');
-  const [caption, setCaption] = useState('');
-  const [name] = useState(myName || ls.get('q_chatname', ''));
-  const [adding, setAdding] = useState(false);
-  const [preview, setPreview] = useState(null);
-
-  useEffect(() => {
-    loadPhotos(planId).then(p => { setPhotos(p); setL(false); });
-  }, [planId]);
-
-  const add = async () => {
-    if (!url.trim()) return;
-    setAdding(true);
-    await savePhoto(planId, name || 'Anónimo', url.trim(), caption.trim());
-    const updated = await loadPhotos(planId);
-    setPhotos(updated);
-    setUrl(''); setCaption('');
-    setAdding(false);
-  };
-
-  if (loading) return <div style={{ textAlign: 'center', color: col.M, padding: '32px' }}>...</div>;
-
-  return (
-    <div>
-      {preview && (
-        <div onClick={() => setPreview(null)} style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,.9)', zIndex: 200, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px' }}>
-          <img src={preview.url} alt={preview.caption} style={{ maxWidth: '100%', maxHeight: '80vh', borderRadius: '12px', objectFit: 'contain' }} />
-          {preview.caption && <div style={{ position: 'absolute', bottom: '40px', left: '50%', transform: 'translateX(-50%)', background: 'rgba(0,0,0,.7)', color: '#fff', padding: '8px 16px', borderRadius: '20px', fontSize: '13px', whiteSpace: 'nowrap' }}>{preview.caption}</div>}
-        </div>
-      )}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px' }}>
-        {photos.map((p, i) => (
-          <div key={i} onClick={() => setPreview(p)} style={{ position: 'relative', cursor: 'pointer', borderRadius: '12px', overflow: 'hidden', aspectRatio: '1', background: col.CARD2 }}>
-            <img src={p.url} alt={p.caption || ''} style={{ width: '100%', height: '100%', objectFit: 'cover' }} onError={e => { e.target.style.display = 'none'; }} />
-            {p.caption && <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, background: 'linear-gradient(transparent,rgba(0,0,0,.7))', padding: '20px 8px 8px', fontSize: '11px', color: '#fff' }}>{p.caption}</div>}
-            <div style={{ position: 'absolute', top: '6px', right: '6px', background: 'rgba(0,0,0,.5)', color: '#fff', fontSize: '10px', padding: '2px 6px', borderRadius: '10px' }}>{p.name}</div>
-          </div>
-        ))}
-        {photos.length === 0 && (
-          <div style={{ gridColumn: '1/-1', textAlign: 'center', padding: '32px', color: col.M2, fontSize: '14px' }}>
-            {lang === 'es' ? 'No hay fotos todavía. ¡Añade la primera!' : 'No photos yet. Add the first one!'}
-          </div>
-        )}
-      </div>
-      <div style={{ background: col.CARD2, border: `1px solid ${col.BD}`, borderRadius: '12px', padding: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-        <div style={{ fontSize: '11px', color: col.M, fontWeight: '600', letterSpacing: '.06em', textTransform: 'uppercase' }}>
-          {lang === 'es' ? 'Añadir foto' : 'Add photo'}
-        </div>
-        <input value={url} onChange={e => setUrl(e.target.value)} placeholder={lang === 'es' ? 'Link de la foto (Instagram, Google Photos, Dropbox...)' : 'Photo link (Instagram, Google Photos, Dropbox...)'}
-          style={{ background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '8px', padding: '10px 12px', color: col.T, fontSize: '13px', fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-        <input value={caption} onChange={e => setCaption(e.target.value)} placeholder={lang === 'es' ? 'Pie de foto (opcional)' : 'Caption (optional)'}
-          style={{ background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '8px', padding: '10px 12px', color: col.T, fontSize: '13px', fontFamily: 'inherit', outline: 'none', width: '100%', boxSizing: 'border-box' }} />
-        <button onClick={add} disabled={!url.trim() || adding} style={{ background: col.A, border: 'none', borderRadius: '10px', padding: '11px', color: '#0A0A0A', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px', opacity: !url.trim() ? 0.3 : 1 }}>
-          {adding ? '...' : (lang === 'es' ? 'Añadir foto' : 'Add photo')}
-        </button>
-        <div style={{ fontSize: '11px', color: col.M2, lineHeight: 1.6 }}>
-          {lang === 'es' ? '💡 Comparte el link directo de la imagen. Funciona con Google Fotos (compartir → copiar link), iCloud, Dropbox, Imgur, etc.' : '💡 Share the direct image link. Works with Google Photos, iCloud, Dropbox, Imgur, etc.'}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════
-// PLAN SCORE (my surprise feature)
-// After the plan date passes, members can rate it ⭐
-// ══════════════════════════════════════════════════════
-const saveScore = async (planId, name, score, note) => {
-  try {
-    await db.from('scores').upsert({ plan_id: planId, name, score, note, at: new Date().toISOString() });
-  } catch(e) { console.log('score:', e); }
-};
-const loadScores = async planId => {
-  try {
-    const { data } = await db.from('scores').select('*').eq('plan_id', planId);
-    return data || [];
-  } catch { return []; }
-};
-
-function PlanScore({ planId, confirmedDate, myName, c, lang }) {
-  const col = c;
-  const [scores, setScores] = useState([]);
-  const [myScore, setMyScore] = useState(0);
-  const [note, setNote] = useState('');
-  const [saved, setSaved] = useState(false);
-  const [hovered, setHovered] = useState(0);
-  const name = myName || ls.get('q_chatname', '');
-
-  const isPast = confirmedDate && new Date(confirmedDate + 'T23:59:59') < new Date();
-  if (!isPast) return null;
-
-  useEffect(() => {
-    loadScores(planId).then(s => {
-      setScores(s);
-      const mine = s.find(x => x.name === name);
-      if (mine) { setMyScore(mine.score); setNote(mine.note || ''); setSaved(true); }
-    });
-  }, [planId]);
-
-  const submit = async () => {
-    if (!myScore) return;
-    await saveScore(planId, name || 'Anónimo', myScore, note);
-    setSaved(true);
-    const updated = await loadScores(planId);
-    setScores(updated);
-  };
-
-  const avg = scores.length > 0 ? (scores.reduce((s, x) => s + x.score, 0) / scores.length).toFixed(1) : null;
-
-  return (
-    <div style={{ background: `${col.A}0D`, border: `1px solid ${col.A}30`, borderRadius: '14px', padding: '16px', marginTop: '16px' }}>
-      <div style={{ fontSize: '11px', color: col.A, fontWeight: '700', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '10px' }}>
-        ✨ {lang === 'es' ? '¿Cómo fue el plan?' : 'How was the plan?'}
-      </div>
-      {avg && <div style={{ textAlign: 'center', fontSize: '32px', fontWeight: '800', color: col.A, marginBottom: '4px' }}>{avg} ⭐</div>}
-      {avg && <div style={{ textAlign: 'center', fontSize: '12px', color: col.M2, marginBottom: '12px' }}>{scores.length} {lang === 'es' ? 'valoraciones' : 'ratings'}</div>}
-      {!saved ? (
-        <>
-          <div style={{ display: 'flex', justifyContent: 'center', gap: '8px', marginBottom: '12px' }}>
-            {[1,2,3,4,5].map(s => (
-              <span key={s} onClick={() => setMyScore(s)} onMouseEnter={() => setHovered(s)} onMouseLeave={() => setHovered(0)}
-                style={{ fontSize: '32px', cursor: 'pointer', opacity: (hovered || myScore) >= s ? 1 : 0.3, transition: 'opacity .15s' }}>⭐</span>
-            ))}
-          </div>
-          {myScore > 0 && <>
-            <input value={note} onChange={e => setNote(e.target.value)} placeholder={lang === 'es' ? 'Deja un comentario (opcional)...' : 'Leave a comment (optional)...'}
-              style={{ width: '100%', background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '10px', padding: '10px 14px', color: col.T, fontSize: '14px', fontFamily: 'inherit', outline: 'none', boxSizing: 'border-box', marginBottom: '10px' }} />
-            <button onClick={submit} style={{ width: '100%', background: col.A, border: 'none', borderRadius: '10px', padding: '12px', color: '#0A0A0A', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit', fontSize: '14px' }}>
-              {lang === 'es' ? 'Enviar valoración →' : 'Submit rating →'}
-            </button>
-          </>}
-        </>
-      ) : (
-        <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '24px', marginBottom: '4px' }}>{'⭐'.repeat(myScore)}</div>
-          <div style={{ fontSize: '13px', color: col.M2 }}>{lang === 'es' ? 'Gracias por valorar este plan' : 'Thanks for rating this plan'}</div>
-          {note && <div style={{ fontSize: '13px', color: col.T, marginTop: '6px', fontStyle: 'italic' }}>"{note}"</div>}
-        </div>
-      )}
-      {scores.filter(s => s.note).length > 0 && (
-        <div style={{ marginTop: '12px', borderTop: `1px solid ${col.BD}`, paddingTop: '12px' }}>
-          {scores.filter(s => s.note).map((s, i) => (
-            <div key={i} style={{ marginBottom: '8px' }}>
-              <div style={{ fontSize: '12px', color: col.M2 }}>{s.name} · {'⭐'.repeat(s.score)}</div>
-              <div style={{ fontSize: '13px', color: col.T, fontStyle: 'italic' }}>"{s.note}"</div>
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
-
-// ══════════════════════════════════════════════════════
-// RECURRING PLANS
-// ══════════════════════════════════════════════════════
-function RecurringBadge({ plan, c, lang }) {
-  const col = c;
-  if (!plan.recurring) return null;
-  const labels = { weekly: lang==='es'?'Semanal':'Weekly', biweekly: lang==='es'?'Quincenal':'Biweekly', monthly: lang==='es'?'Mensual':'Monthly' };
-  return (
-    <span style={{ fontSize: '11px', fontWeight: '700', padding: '2px 9px', borderRadius: '20px', background: '#3B82F620', color: '#60A5FA', border: '1px solid #3B82F640' }}>
-      🔄 {labels[plan.recurring] || plan.recurring}
-    </span>
-  );
-}
-
-// ══════════════════════════════════════════════════════
-// UPDATED ResultsScreen with new tabs
-// ══════════════════════════════════════════════════════
-function ResultsScreenV2({ plan: ip, onBack, isOrg, c, lang, onBusiness }) {
-  const [plan, setPlan] = useState(ip);
-  const col = c; const t = T[lang];
-  const [tab, setTab] = useState('who');
-  const [responses, setRs] = useState([]);
-  const [loading, setL] = useState(true);
-  const [confirming, setCon] = useState(false);
-  const [reminderSent, setReminderSent] = useState(false);
-  const [payModal, setPayModal] = useState(false);
-  const [payAmount, setPayAmount] = useState(0);
-  const [isOrgState] = useState(isOrg);
-  const myName = ls.get('q_chatname', '');
-
-  const refresh = useCallback(async () => {
-    setL(true);
-    setRs(await loadResps(plan.id));
-    setL(false);
-  }, [plan.id]);
-
-  useEffect(() => { refresh(); }, [refresh]);
-
-  const total = responses.length;
-  const counts = (plan.dates || []).reduce((acc, d) => { acc[d] = responses.filter(r => r.avail?.[d]).length; return acc; }, {});
-  const mx = Math.max(...Object.values(counts), 1);
-  const best = total > 0 ? plan.dates?.reduce((b, d) => counts[d] > counts[b] ? d : b, plan.dates[0]) : null;
-  const budget = (plan.stops || []).reduce((s, p2) => s + (parseFloat(p2.cost) || 0), 0);
-  const giftPer = plan.gift?.price ? parseFloat(plan.gift.price) : 0;
-  const fs = plan.stops?.find(s => s.address || s.name);
-
-  const confirmDate = async d => {
-    setCon(true);
-    const up = { ...plan, confirmedDate: d };
-    await updatePlan(up); setPlan(up);
-    ls.set('q_state', { ...ls.get('q_state', {}), planConfirmed: d });
-    setCon(false);
-  };
-  const waConfirm = () => {
-    const url = location.href.split('?')[0] + '?code=' + plan.id;
-    const msg = lang === 'en'
-      ? `📌 *${plan.name}* — date confirmed!\n\n🗓️ ${fmtDate(plan.confirmedDate, lang)}\n\n${url}`
-      : `📌 *${plan.name}* — ¡fecha confirmada!\n\n🗓️ ${fmtDate(plan.confirmedDate, lang)}\n\n${url}`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-  };
-  const waReminder = () => {
-    const url = location.href.split('?')[0] + '?code=' + plan.id;
-    const msg = lang === 'en'
-      ? `⏰ Reminder: *${plan.name}* is coming up!\n\n${url}`
-      : `⏰ Recordatorio: ¡se acerca *${plan.name}*!\n\n${url}`;
-    window.open('https://wa.me/?text=' + encodeURIComponent(msg), '_blank');
-    setReminderSent(true);
-  };
-  const togglePublic = async () => {
-    const up = { ...plan, isPublic: !plan.isPublic };
-    await updatePlan(up); setPlan(up);
-  };
-  const setRecurring = async val => {
-    const up = { ...plan, recurring: val };
-    await updatePlan(up); setPlan(up);
-  };
-
-  const TABS = ['who', 'chat', 'vote', 'route', 'extras', 'photos', 'weather', 'transport', 'map', 'pay'];
-  const tl = k => ({ who: t.tabs.who, route: t.tabs.route, extras: t.tabs.extras, weather: t.tabs.weather, transport: t.tabs.transport, map: t.tabs.map, pay: t.tabs.pay, chat: '💬 Chat', vote: '🗳️ Votar', photos: '📸 Fotos' }[k]);
-  const howLabel = v => ({ car: t.car, transit: t.transit, taxi: t.taxi, walk: t.walk, bike: t.bike }[v] || `🚀 ${v}`);
-
-  return (
-    <>
-      {payModal && <PaymentModal plan={plan} amount={payAmount} onClose={() => setPayModal(false)} c={col} lang={lang} />}
-      <div style={{ padding: '24px', maxWidth: '420px', margin: '0 auto' }}>
-        <Back onClick={onBack} c={col} label={t.back} />
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-          <div>
-            <h2 style={{ fontFamily: "'Syne',serif", fontSize: '24px', fontWeight: '800', color: col.T, margin: '0 0 4px' }}>{plan.name}</h2>
-            <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
-              <RecurringBadge plan={plan} c={col} lang={lang} />
-              {plan.isPublic && <span style={{ fontSize: '11px', color: col.A }}>🌍 {lang === 'es' ? 'público' : 'public'}</span>}
-            </div>
-          </div>
-          <button onClick={refresh} style={{ background: 'none', border: `1px solid ${col.BD}`, color: col.M2, cursor: 'pointer', fontSize: '12px', padding: '6px 10px', borderRadius: '8px', fontFamily: 'inherit' }}>↻</button>
-        </div>
-        <div style={{ fontSize: '13px', color: col.M2, marginBottom: '12px' }}>
-          {total} {total === 1 ? t.responses : t.responsesP} · <span style={{ color: col.A, fontWeight: '700', letterSpacing: '.1em' }}>{plan.id}</span>
-        </div>
-
-        {plan.confirmedDate && (
-          <div style={{ background: `${col.A}15`, border: `1px solid ${col.A}50`, borderRadius: '12px', padding: '14px 16px', marginBottom: '14px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div>
-              <div style={{ fontSize: '11px', color: col.A, fontWeight: '700', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '2px' }}>{t.confirmedDate}</div>
-              <div style={{ fontSize: '15px', color: col.T, fontWeight: '600', textTransform: 'capitalize' }}>{fmtDate(plan.confirmedDate, lang)}</div>
-            </div>
-            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-              {isOrgState && <button onClick={waConfirm} style={{ background: '#25D366', border: 'none', borderRadius: '10px', padding: '8px 12px', color: '#fff', fontSize: '12px', fontWeight: '700', cursor: 'pointer', fontFamily: 'inherit' }}>{t.notifyGroup}</button>}
-              <button onClick={waReminder} style={{ background: col.CARD2, border: `1px solid ${col.BD}`, borderRadius: '10px', padding: '8px 12px', color: reminderSent ? col.A : col.M2, fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>{reminderSent ? t.reminderSent : t.sendReminder}</button>
-            </div>
-          </div>
-        )}
-
-        {isOrgState && (
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-            <button onClick={togglePublic} style={{ flex: 1, padding: '8px', background: plan.isPublic ? `${col.A}15` : col.CARD, border: `1px solid ${plan.isPublic ? col.A + '50' : col.BD}`, borderRadius: '10px', color: plan.isPublic ? col.A : col.M2, fontSize: '12px', fontWeight: '600', cursor: 'pointer', fontFamily: 'inherit' }}>
-              {plan.isPublic ? `✓ ${lang === 'es' ? 'Público' : 'Public'}` : `🌍 ${lang === 'es' ? 'Hacer público' : 'Make public'}`}
-            </button>
-            <select value={plan.recurring || ''} onChange={e => setRecurring(e.target.value || null)} style={{ flex: 1, background: col.CARD, border: `1px solid ${col.BD}`, color: plan.recurring ? col.A : col.M2, fontSize: '12px', padding: '8px 10px', borderRadius: '10px', fontFamily: 'inherit', fontWeight: plan.recurring ? '600' : '400' }}>
-              <option value=''>🔄 {lang === 'es' ? 'Sin repetición' : 'No repeat'}</option>
-              <option value='weekly'>{lang === 'es' ? '🔄 Semanal' : '🔄 Weekly'}</option>
-              <option value='biweekly'>{lang === 'es' ? '🔄 Quincenal' : '🔄 Biweekly'}</option>
-              <option value='monthly'>{lang === 'es' ? '🔄 Mensual' : '🔄 Monthly'}</option>
-            </select>
-          </div>
-        )}
-
-        <div style={{ display: 'flex', gap: '5px', overflowX: 'auto', paddingBottom: '4px', marginBottom: '20px' }}>
-          {TABS.map(tb => (
-            <button key={tb} onClick={() => setTab(tb)} style={{ padding: '7px 11px', borderRadius: '20px', border: `1px solid ${tab === tb ? col.A + '60' : col.BD}`, background: tab === tb ? `${col.A}15` : col.CARD, color: tab === tb ? col.A : col.M2, fontSize: '12px', fontWeight: tab === tb ? '700' : '400', cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
-              {tl(tb)}
-            </button>
-          ))}
-        </div>
-
-        {loading && <div style={{ textAlign: 'center', color: col.M, padding: '48px' }}>...</div>}
-
-        {!loading && tab === 'who' && (
-          total === 0
-            ? <Card c={col} style={{ textAlign: 'center', padding: '32px' }}><div style={{ fontSize: '36px', marginBottom: '12px' }}>⏳</div><div style={{ color: col.T, fontWeight: '500', marginBottom: '6px' }}>{t.noResp}</div><div style={{ color: col.M2, fontSize: '13px' }}>{t.noRespSub} <span style={{ color: col.A, fontWeight: '700' }}>{plan.id}</span></div></Card>
-            : <>
-                {best && counts[best] > 0 && (
-                  <div style={{ background: `${col.A}12`, border: `1px solid ${col.A}35`, borderRadius: '14px', padding: '16px', marginBottom: '18px' }}>
-                    <div style={{ display: 'flex', gap: '14px', alignItems: 'center', marginBottom: isOrgState && !plan.confirmedDate ? '14px' : '0' }}>
-                      <div style={{ fontSize: '28px' }}>⭐</div>
-                      <div>
-                        <div style={{ fontSize: '11px', color: col.A, fontWeight: '700', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '2px' }}>{t.bestOpt}</div>
-                        <div style={{ fontSize: '15px', color: col.T, fontWeight: '600', textTransform: 'capitalize' }}>{fmtDate(best, lang)}</div>
-                        {plan.times?.[best]?.length > 0 && <div style={{ fontSize: '12px', color: col.M2 }}>{plan.times[best].join(', ')}</div>}
-                        <div style={{ fontSize: '13px', color: col.M2 }}>{counts[best]}/{total} {lang === 'en' ? 'can' : 'pueden'}</div>
-                      </div>
-                    </div>
-                    {isOrgState && !plan.confirmedDate && <Btn onClick={() => confirmDate(best)} disabled={confirming} full sm c={col}>{confirming ? t.confirming : t.confirmThis}</Btn>}
-                  </div>
-                )}
-                <div style={{ marginBottom: '20px' }}>
-                  {(plan.dates || []).map(d => {
-                    const n = counts[d]; const pct = (n / mx) * 100; const isBest = d === best && n > 0; const isConf = d === plan.confirmedDate;
-                    return (
-                      <div key={d} style={{ marginBottom: '12px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '5px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                            <span style={{ fontSize: '13px', color: isConf || isBest ? col.A : col.T, fontWeight: isConf || isBest ? '700' : '400', textTransform: 'capitalize' }}>{fmtShort(d, lang)}</span>
-                            {isConf && <span style={{ fontSize: '10px', background: col.A, color: '#0A0A0A', padding: '1px 7px', borderRadius: '20px', fontWeight: '800' }}>{t.CONFIRMED}</span>}
-                            {!isConf && isBest && <span>⭐</span>}
-                          </div>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                            <span style={{ fontSize: '13px', color: isBest ? col.A : col.M2, fontWeight: isBest ? '700' : '400' }}>{n}/{total}</span>
-                            {isOrgState && !plan.confirmedDate && d !== best && n > 0 && <button onClick={() => confirmDate(d)} style={{ background: 'none', border: 'none', color: col.M2, fontSize: '11px', cursor: 'pointer', fontFamily: 'inherit', textDecoration: 'underline' }}>{t.confirmSmall}</button>}
-                          </div>
-                        </div>
-                        <div style={{ height: '7px', background: col.BD, borderRadius: '4px', overflow: 'hidden' }}>
-                          <div style={{ height: '100%', width: `${pct}%`, background: isConf || isBest ? col.A : col.CARD2, borderRadius: '4px', transition: 'width .5s' }} />
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <Card c={col}>
-                  <Lbl c={col}>{lang === 'en' ? 'Detail per person' : 'Detalle por persona'}</Lbl>
-                  {responses.map((r, i) => (
-                    <div key={i} style={{ paddingBottom: '12px', marginBottom: '12px', borderBottom: i < responses.length - 1 ? `1px solid ${col.BD}` : 'none' }}>
-                      <div style={{ fontSize: '14px', color: col.T, fontWeight: '600', marginBottom: '6px' }}>{r.name}{r.how && <span style={{ fontSize: '12px', color: col.M2, fontWeight: '400' }}> · {howLabel(r.how)}</span>}</div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '5px' }}>
-                        {(plan.dates || []).map(d => <span key={d} style={{ fontSize: '11px', padding: '3px 9px', borderRadius: '20px', background: r.avail?.[d] ? `${col.A}20` : col.CARD2, color: r.avail?.[d] ? col.A : col.M, fontWeight: r.avail?.[d] ? '700' : '400', border: `1px solid ${r.avail?.[d] ? col.A + '40' : col.BD}`, textTransform: 'capitalize' }}>{fmtShort(d, lang)}</span>)}
-                      </div>
-                    </div>
-                  ))}
-                </Card>
-                <PlanScore planId={plan.id} confirmedDate={plan.confirmedDate} myName={myName} c={col} lang={lang} />
-              </>
-        )}
-
-        {!loading && tab === 'chat' && <ChatPanel planId={plan.id} myName={myName} c={col} lang={lang} />}
-
-        {!loading && tab === 'vote' && <VotingPanel plan={plan} onUpdatePlan={setPlan} isOrg={isOrgState} myName={myName} c={col} lang={lang} />}
-
-        {!loading && tab === 'photos' && <PhotoAlbum planId={plan.id} myName={myName} c={col} lang={lang} />}
-
-        {!loading && tab === 'route' && <>
-          {(plan.stops || []).map((s, i) => (
-            <div key={s.id || i} style={{ display: 'flex', gap: '12px', marginBottom: '10px' }}>
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-                <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: `${col.A}20`, border: `1.5px solid ${col.A}60`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', color: col.A, flexShrink: 0 }}>{i + 1}</div>
-                {i < plan.stops.length - 1 && <div style={{ width: '2px', flex: 1, background: col.BD, margin: '4px 0' }} />}
-              </div>
-              <Card c={col} style={{ flex: 1, marginBottom: 0 }}>
-                <div style={{ fontSize: '11px', color: col.M2, marginBottom: '4px' }}>{s.cat}</div>
-                <div style={{ fontSize: '15px', color: col.T, fontWeight: '600', marginBottom: '4px' }}>{s.name || '—'}</div>
-                {s.address && <div style={{ fontSize: '12px', color: col.M2, marginBottom: '8px' }}>📍 {s.address}</div>}
-                <BusinessSuggestions city={plan.city} type={s.cat} c={col} lang={lang} />
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', alignItems: 'center', marginTop: '8px' }}>
-                  {parseFloat(s.cost) > 0 && <Badge color={col.A}>{s.cost}€/pers.</Badge>}
-                  {(s.address || s.name) && <a href={`https://maps.google.com/?q=${encodeURIComponent((s.name || '') + (s.address ? ' ' + s.address : ''))}`} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: col.M2, textDecoration: 'none', padding: '4px 10px', border: `1px solid ${col.BD}`, borderRadius: '8px' }}>Maps 🗺️</a>}
-                  {s.link && <a href={s.link.startsWith('http') ? s.link : 'https://' + s.link} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: col.A, textDecoration: 'none', padding: '4px 10px', border: `1px solid ${col.A}40`, borderRadius: '8px' }}>{lang === 'en' ? 'Book' : 'Reserva'} ↗</a>}
-                  {s.stripeLink && <a href={s.stripeLink.startsWith('http') ? s.stripeLink : 'https://' + s.stripeLink} target="_blank" rel="noreferrer" style={{ fontSize: '12px', color: '#fff', textDecoration: 'none', padding: '4px 10px', borderRadius: '8px', background: '#635BFF', fontWeight: '600' }}>💳</a>}
-                </div>
-              </Card>
-            </div>
-          ))}
-          {budget > 0 && <><HR c={col} />
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', background: `${col.A}0D`, border: `1px solid ${col.A}30`, borderRadius: '12px', marginBottom: '10px' }}><span style={{ color: col.M2 }}>{t.perPerson}</span><span style={{ color: col.A, fontSize: '22px', fontWeight: '800' }}>{budget.toFixed(0)}€</span></div>
-            {giftPer > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', padding: '12px 16px', background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '12px', marginBottom: '10px' }}><span style={{ color: col.M2, fontSize: '14px' }}>+ regalo</span><span style={{ color: col.T, fontWeight: '600' }}>{giftPer.toFixed(0)}€/pers.</span></div>}
-            <div style={{ display: 'flex', justifyContent: 'space-between', padding: '14px 16px', background: col.CARD2, border: `1px solid ${col.BD}`, borderRadius: '12px' }}><span style={{ color: col.T, fontWeight: '700' }}>{t.total}</span><span style={{ color: col.A, fontSize: '18px', fontWeight: '800' }}>{(budget + giftPer).toFixed(0)}€</span></div>
-          </>}
-        </>}
-
-        {!loading && tab === 'extras' && <>
-          {plan.gift
-            ? <Card c={col} accent style={{ marginBottom: '16px' }}>
-                <div style={{ fontSize: '11px', color: col.M2, fontWeight: '700', letterSpacing: '.08em', textTransform: 'uppercase', marginBottom: '12px' }}>{t.gift2}</div>
-                <div style={{ fontSize: '18px', color: col.T, fontWeight: '600', marginBottom: '8px' }}>{plan.gift.name || '—'}</div>
-                {plan.gift.price && <><div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}><span style={{ color: col.M2, fontSize: '14px' }}>{t.totalPrice}</span><span style={{ color: col.A, fontWeight: '700', fontSize: '18px' }}>{plan.gift.price}€</span></div>
-                {total > 0 && <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}><span style={{ color: col.M2, fontSize: '14px' }}>{t.perOf} ({total})</span><span style={{ color: col.A, fontWeight: '700' }}>{(parseFloat(plan.gift.price) / total).toFixed(2)}€</span></div>}</>}
-                {plan.gift.link && <a href={plan.gift.link.startsWith('http') ? plan.gift.link : 'https://' + plan.gift.link} target="_blank" rel="noreferrer" style={{ display: 'block', textAlign: 'center', padding: '10px', background: `${col.A}20`, border: `1px solid ${col.A}50`, borderRadius: '10px', color: col.A, textDecoration: 'none', fontSize: '14px', fontWeight: '600', marginBottom: '10px' }}>{t.seeGift}</a>}
-                <Btn onClick={() => { setPayAmount((budget + giftPer).toFixed(2)); setPayModal(true); }} full style={{ padding: '13px' }} c={col}>💳 {t.payTitle}</Btn>
-              </Card>
-            : <Card c={col} style={{ textAlign: 'center', padding: '28px' }}><div style={{ fontSize: '32px', marginBottom: '10px' }}>🎁</div><div style={{ color: col.M2, fontSize: '14px' }}>{lang === 'en' ? 'No gift in this plan' : 'No hay regalo en este plan'}</div></Card>
-          }
-          {plan.bring?.filter(b => b.text || typeof b === 'string').length > 0 && (
-            <Card c={col}>
-              <Lbl c={col}>{t.bring}</Lbl>
-              {plan.bring.filter(b => b.text || typeof b === 'string').map((b, i) => {
-                const text = typeof b === 'string' ? b : b.text;
-                return <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 0', borderBottom: i < plan.bring.length - 1 ? `1px solid ${col.BD}` : 'none', fontSize: '14px', color: col.T }}><div style={{ width: '7px', height: '7px', borderRadius: '50%', background: col.A, flexShrink: 0 }} />{text}</div>;
-              })}
-            </Card>
-          )}
-        </>}
-
-        {!loading && tab === 'weather' && <>
-          {best
-            ? <>
-                <div style={{ fontSize: '14px', color: col.M2, marginBottom: '16px' }}>{t.forecastFor} <span style={{ color: col.T, fontWeight: '600', textTransform: 'capitalize' }}>{fmtDate(plan.confirmedDate || best, lang)}</span>{plan.city ? ` — ${plan.city}` : ''}</div>
-                {plan.city
-                  ? <WeatherWidget city={plan.city} date={plan.confirmedDate || best} c={col} lang={lang} showAdvice={true} />
-                  : <Card c={col} style={{ textAlign: 'center', padding: '28px' }}><div style={{ fontSize: '32px', marginBottom: '10px' }}>🌤️</div><div style={{ color: col.M2, fontSize: '14px' }}>{t.noCity}</div></Card>}
-                {plan.city && plan.dates?.length > 1 && <><HR c={col} /><Lbl c={col}>{t.allDates}</Lbl>{plan.dates.map(d => <div key={d} style={{ marginBottom: '14px' }}><div style={{ fontSize: '13px', color: col.M2, marginBottom: '6px', textTransform: 'capitalize' }}>{fmtShort(d, lang)}{d === plan.confirmedDate ? ' 📌' : ''}</div><WeatherWidget city={plan.city} date={d} c={col} lang={lang} showAdvice={true} /></div>)}</>}
-              </>
-            : <Card c={col} style={{ textAlign: 'center', padding: '28px' }}><div style={{ fontSize: '32px', marginBottom: '10px' }}>⏳</div><div style={{ color: col.M2, fontSize: '14px' }}>{t.needResp}</div></Card>
-          }
-        </>}
-
-        {!loading && tab === 'transport' && <>
-          {fs
-            ? <>
-                <Card c={col} style={{ marginBottom: '12px' }}><div style={{ fontSize: '11px', color: col.M2, fontWeight: '700', letterSpacing: '.06em', textTransform: 'uppercase', marginBottom: '8px' }}>{t.dest}</div><div style={{ fontSize: '15px', color: col.T, fontWeight: '600' }}>{fs.name}</div>{fs.address && <div style={{ fontSize: '13px', color: col.M2 }}>{fs.address}</div>}</Card>
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px', marginBottom: '20px' }}>
-                  {[{ name: 'Google Maps', icon: '🗺️', url: `https://maps.google.com/?q=${encodeURIComponent((fs.name || '') + (fs.address ? ' ' + fs.address : ''))}` }, { name: 'Uber', icon: '⚫', url: 'https://m.uber.com/' }, { name: 'Cabify', icon: '🟣', url: 'https://cabify.com/' }, { name: 'Renfe', icon: '🚆', url: 'https://www.renfe.com/' }, { name: 'Metro/EMT', icon: '🚇', url: 'https://www.emt.madrid.es/' }, { name: 'Trainline', icon: '🎫', url: 'https://www.thetrainline.com/' }].map(tx => (
-                    <a key={tx.name} href={tx.url} target="_blank" rel="noreferrer" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '18px 10px', background: col.CARD, border: `1px solid ${col.BD}`, borderRadius: '14px', textDecoration: 'none' }}>
-                      <div style={{ fontSize: '28px' }}>{tx.icon}</div><div style={{ fontSize: '13px', color: col.T, fontWeight: '600', textAlign: 'center' }}>{tx.name}</div>
-                    </a>
-                  ))}
-                </div>
-                {responses.filter(r => r.how).length > 0 && <><Lbl c={col}>{t.howEach}</Lbl>{responses.filter(r => r.how).map((r, i) => <div key={i} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderBottom: `1px solid ${col.BD}`, fontSize: '14px' }}><span style={{ color: col.T }}>{r.name}</span><span style={{ color: col.M2 }}>{howLabel(r.how)}</span></div>)}</>}
-              </>
-            : <Card c={col} style={{ textAlign: 'center', padding: '28px' }}><div style={{ fontSize: '32px', marginBottom: '10px' }}>📍</div><div style={{ color: col.M2, fontSize: '14px' }}>{t.noStops}</div></Card>
-          }
-        </>}
-
-        {!loading && tab === 'map' && <RouteMap stops={plan.stops || []} c={col} />}
-
-        {!loading && tab === 'pay' && <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          <div style={{ fontSize: '14px', color: col.M2, marginBottom: '4px' }}>{lang === 'en' ? 'Pay your share directly from the app' : 'Paga tu parte directamente desde la app'}</div>
-          {budget > 0 && <Card c={col} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <div><div style={{ fontSize: '13px', color: col.M2 }}>{lang === 'en' ? 'Total per person' : 'Total por persona'}</div><div style={{ fontSize: '22px', fontWeight: '800', color: col.A }}>{(budget + giftPer).toFixed(0)}€</div></div>
-            <Btn onClick={() => { setPayAmount((budget + giftPer).toFixed(2)); setPayModal(true); }} c={col}>{lang === 'es' ? 'Pagar →' : 'Pay →'}</Btn>
-          </Card>}
-        </div>}
-      </div>
-    </>
-  );
-}
-
-// ══════════════════════════════════════════════════════
-// NEW SQL NEEDED (run in Supabase)
-// messages, votes, photos, scores tables
-// ══════════════════════════════════════════════════════
-// create table if not exists messages (id uuid default gen_random_uuid() primary key, plan_id text, name text, text text, at timestamptz default now());
-// create table if not exists votes (plan_id text, user_id text, option_id text, primary key (plan_id, user_id));
-// create table if not exists photos (id uuid default gen_random_uuid() primary key, plan_id text, name text, url text, caption text, at timestamptz default now());
-// create table if not exists scores (plan_id text, name text, score int, note text, at timestamptz default now(), primary key (plan_id, name));
-// -- Enable RLS + public policies on all 4 tables
-
-// ══════════════════════════════════════════════════════
-// FINAL APP — uses ResultsScreenV2
-// ══════════════════════════════════════════════════════
-function App() {
-  const [theme, setTheme] = useState(() => ls.get('q_theme', null) || getSysTheme());
-  const [lang, setLang] = useState(() => ls.get('q_lang', 'es'));
-  const [screen, setScreen] = useState('home');
-  const [plan, setPlan] = useState(null);
-  const [isOrg, setIsOrg] = useState(false);
-  const [user, setUser] = useState(() => ls.get('q_user', null));
-  const c = useMemo(() => C(theme), [theme]);
-
-  useEffect(() => { applyTheme(theme); }, [theme]);
-  const toggleTheme = () => setTheme(t => { const n = t === 'dark' ? 'light' : 'dark'; applyTheme(n); ls.set('q_theme', n); return n; });
-  const toggleLang = () => setLang(l => { const n = l === 'es' ? 'en' : 'es'; ls.set('q_lang', n); return n; });
-
-  useEffect(() => {
-    const code = new URLSearchParams(location.search).get('code');
-    if (code) { loadPlan(code).then(p => { if (p) { setPlan(p); setIsOrg(false); setScreen('respond'); } }); return; }
-    const saved = ls.get('q_state', null);
-    if (saved?.planId) { loadPlan(saved.planId).then(p => { if (p) { setPlan(p); setIsOrg(saved.isOrg || false); setScreen(saved.screen || 'home'); } }); }
-  }, []);
-
-  const nav = (s, p = null, org = false) => {
-    setScreen(s); if (p) setPlan(p); setIsOrg(org);
-    if (s !== 'home') ls.set('q_state', { screen: s, planId: p?.id || plan?.id, isOrg: org });
-    else ls.set('q_state', {});
-  };
-
-  const handleJoin = async code => { const p = await loadPlan(code); if (p) { nav('respond', p, false); return true; } return false; };
-  const handleOpenFromProfile = async id => { const p = await loadPlan(id); if (p) { const mine = getMyPlans().find(x => x.id === id); nav('results', p, mine?.role === 'organizer'); } };
-  const handleDiscoverJoin = async id => { const p = await loadPlan(id); if (p) { nav('respond', p, false); } };
-
-  const premium = getPremium();
-  const t = T[lang];
-  const noNav = ['home', 'create', 'profile', 'discover', 'premium', 'business'];
-
-  return (
-    <div style={{ minHeight: '100vh', background: c.BG, color: c.T, fontFamily: "'DM Sans',system-ui,sans-serif" }}>
-      <div style={{ borderBottom: `1px solid ${c.BD}`, padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', position: 'sticky', top: 0, background: c.BG + 'F0', backdropFilter: 'blur(10px)', zIndex: 10 }}>
-        <div onClick={() => nav('home')} style={{ fontFamily: "'Syne',serif", fontWeight: '800', fontSize: '22px', cursor: 'pointer', color: c.T, letterSpacing: '-.02em' }}>
-          queda<span style={{ color: c.A }}>.</span>
-          {premium.active && <span style={{ fontSize: '11px', color: c.A, marginLeft: '4px', fontWeight: '700' }}>Pro</span>}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          {plan && !noNav.includes(screen) && <span style={{ fontSize: '12px', color: c.M }}>código: <span style={{ color: c.A, fontWeight: '800', letterSpacing: '.1em' }}>{plan.id}</span></span>}
-          {user && <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: `${c.A}25`, border: `1px solid ${c.A}50`, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: '800', color: c.A, cursor: 'pointer' }} onClick={() => nav('profile')}>{user.name?.charAt(0).toUpperCase() || '?'}</div>}
-          <button onClick={() => nav('premium')} style={{ background: premium.active ? `${c.A}20` : c.CARD, border: `1px solid ${premium.active ? c.A + '50' : c.BD}`, borderRadius: '8px', padding: '5px 9px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: premium.active ? c.A : c.M2 }}>⭐{premium.active ? ' Pro' : ''}</button>
-          <button onClick={toggleLang} style={{ background: c.CARD, border: `1px solid ${c.BD}`, borderRadius: '8px', padding: '5px 10px', cursor: 'pointer', fontSize: '12px', fontWeight: '700', color: c.M2 }}>{lang === 'es' ? 'EN' : 'ES'}</button>
-          <button onClick={toggleTheme} style={{ background: c.CARD, border: `1px solid ${c.BD}`, borderRadius: '8px', padding: '6px 10px', cursor: 'pointer', fontSize: '15px' }}>{theme === 'dark' ? '☀️' : '🌙'}</button>
-        </div>
-      </div>
-
-      {screen === 'home' && <HomeScreen onCreate={() => nav('create')} onJoin={handleJoin} onProfile={() => nav('profile')} onDiscover={() => nav('discover')} onBusiness={() => nav('business')} onPremium={() => nav('premium')} c={c} lang={lang} toggleLang={toggleLang} toggleTheme={toggleTheme} theme={theme} user={user} premium={premium} />}
-      {screen === 'profile' && <ProfileScreen onBack={() => nav('home')} onOpen={handleOpenFromProfile} c={c} lang={lang} user={user} onPremium={() => nav('premium')} />}
-      {screen === 'discover' && <DiscoverScreen onBack={() => nav('home')} onJoin={handleDiscoverJoin} c={c} lang={lang} />}
-      {screen === 'premium' && <PremiumScreen onBack={() => nav('home')} c={c} lang={lang} />}
-      {screen === 'business' && <BusinessScreen onBack={() => nav('home')} c={c} lang={lang} />}
-      {screen === 'create' && <CreateScreen onBack={() => nav('home')} onCreated={p => { nav('share', p, true); }} c={c} lang={lang} user={user} />}
-      {screen === 'share' && plan && <ShareScreen plan={plan} onViewResults={() => nav('results', plan, isOrg)} onBack={() => nav('home')} c={c} lang={lang} />}
-      {screen === 'respond' && plan && <RespondScreen plan={plan} onBack={() => nav('home')} onDone={() => nav('results', plan, false)} onCreateOwn={() => nav('create')} c={c} lang={lang} />}
-      {screen === 'results' && plan && <ResultsScreenV2 plan={plan} onBack={() => nav(isOrg ? 'share' : 'home', plan, isOrg)} isOrg={isOrg} c={c} lang={lang} onBusiness={() => nav('business')} />}
-    </div>
-  );
-}
-
-ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
 </script>
 </body>
 </html>
