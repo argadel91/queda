@@ -1263,17 +1263,8 @@ const generateICS=(plan,lang)=>{
   const desc=isEs
     ?`Plan creado con queda. — queda.app\nCódigo: ${plan.id}${plan.desc?'\n'+plan.desc:''}`
     :`Plan created with queda. — queda.app\nCode: ${plan.id}${plan.desc?'\n'+plan.desc:''}`;
-  const ics=`BEGIN:VCALENDAR
-VERSION:2.0
-PRODID:-//queda//queda.app//EN
-BEGIN:VEVENT
-UID:${plan.id}@queda.app
-SUMMARY:${plan.name}
-DTSTART${time?'':'VALUE=DATE'}:${dtStart}
-DTEND${time?'':'VALUE=DATE'}:${dtEnd}
-DESCRIPTION:${desc}
-${loc?'LOCATION:'+loc+'\n':''}END:VEVENT
-END:VCALENDAR`;
+  const ics=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//queda//queda.app//EN','BEGIN:VEVENT',`UID:${plan.id}@queda.app`,`SUMMARY:${plan.name}`,`DTSTART${time?'':'VALUE=DATE'}:${dtStart}`,`DTEND${time?'':'VALUE=DATE'}:${dtEnd}`,`DESCRIPTION:${desc}`,loc?`LOCATION:${loc}`:'','END:VEVENT','END:VCALENDAR'].filter(x=>x).join('\n');
+
   const blob=new Blob([ics],{type:'text/calendar'});
   const url=URL.createObjectURL(blob);
   const a=document.createElement('a');a.href=url;a.download=`${plan.name.replace(/[^a-z0-9]/gi,'_')}.ics`;a.click();
@@ -1507,7 +1498,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
               <div style={{fontSize:'12px',color:mc,fontWeight:'600',marginBottom:'3px'}}>{r.name}</div>
               <div style={{fontSize:'13px',color:c.T}}>"{r.comment}"</div>
             </div>)}
-          </Card>
+          </Card>}
         </>)}
 
       {/* PLAN tab = Route + budget + inline map */}
