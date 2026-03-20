@@ -372,7 +372,7 @@ const T={
     shareWa:'Partager sur WhatsApp 💬',copyLink:'Copier le lien 🔗',copied:'✓ Copié !',viewRes:'Voir les résultats →',
     previewBy:'Organisé par',previewDates:'Dates proposées',previewBudget:'Budget estimé',previewJoin:'Indiquer mes disponibilités →',editAvail:'Modifier ma réponse →',
     yourAvail:'Quand es-tu disponible ?',avYes:'✅ Oui',avMaybe:'🤔 Peut-être',avNo:'❌ Je ne peux pas',
-    maybeNote:"Ajouté à "peut-être" — l'organisateur le verra.",
+    maybeNote:"Ajouté à 'peut-être' — l'organisateur le verra.",
     bestTime:'À quelle heure de préférence ?',howGet:'Comment tu y vas ?',howOpt:'(optionnel)',
     car:'🚗 En voiture',moto:'🏍️ En moto',transit:'🚇 Transports en commun',taxi:'🚕 Taxi/Uber',walk:'🚶 À pied',bike:'🚲 Vélo',other:'✏️ Autre',otherPh:'Comment tu y vas ?',
     commentLbl:'💬 Commentaire (optionnel)',commentPh:"Hâte d'y être ! / J'arriverai un peu tard / ...",
@@ -398,7 +398,7 @@ const T={
     modes:{social:{label:'👥 Social',sub:'Amis, famille et connaissances',color:'#CDFF6C',ex:['Dîner anniversaire','Week-end escapade','Soirée','Aventure 🐪'],vibe:'Décontracté et libre'},intimate:{label:'💘 Intime',sub:'Couple, rendez-vous et rencontres privées',color:'#F472B6',ex:['Premier rendez-vous','Surprise romantique','Anniversaire de couple','Rencontre privée'],vibe:'Privé et discret'},professional:{label:'💼 Professionnel',sub:'Travail, études et services',color:'#60A5FA',ex:['Réunion équipe','Dîner entreprise','Visite technique','Cours particulier'],vibe:'Formel et structuré'}},
     roles:['Organisateur','Client','Prestataire','Employé','Étudiant','Professeur'],yourRole:'Ton rôle',guestRole:'Ton rôle',
     privateNote:'🔒 Tes infos ne sont pas partagées avant acceptation.',
-    onb:[{e:'👥',t:'Choisis ton type de plan',d:'Social pour les amis, Intime pour les rendez-vous, Professionnel pour le travail.'},{e:'📅',t:'Propose des dates et horaires',d:'Sélectionne la ville et plusieurs jours possibles. Chaque invité marque Oui, Peut-être ou Non.'},{e:'🔗',t:'Partage avec un lien',d:"Envoie le lien via WhatsApp. Pas d'appli supplémentaire."},{e:'✅',t:"Confirme et c'est parti",d:'Une fois les réponses reçues, confirme la date. Le groupe est prévenu.'}],
+    onb:[{e:'👥',t:'Choisis ton type de plan',d:'Social pour les amis, Intime pour les rendez-vous, Professionnel pour le travail.'},{e:'📅',t:'Propose des dates et horaires',d:'Sélectionne la ville et plusieurs jours possibles. Chaque invité marque Oui, Peut-être ou Non.'},{e:'🔗',t:'Partage avec un lien',d:"Envoie le lien via WhatsApp. Pas d'appli supplémentaire.'},{e:'✅',t:'Confirme et c'est parti",d:'Une fois les réponses reçues, confirme la date. Le groupe est prévenu.'}],
     skip:'Passer',next:'Suivant →',start:'C'est parti !',
     cat:['🍽️ Restaurant','🍸 Bar','🎉 Boîte de nuit','☕ Café','🎭 Activité','🏠 Maison','🍕 Informel','📍 Autre'],
   },
@@ -480,7 +480,7 @@ const T={
     shareWa:'Condividi su WhatsApp 💬',copyLink:'Copia link 🔗',copied:'✓ Copiato!',viewRes:'Vedi risultati →',
     previewBy:'Organizzato da',previewDates:'Date proposte',previewBudget:'Budget stimato',previewJoin:'Indica la tua disponibilità →',editAvail:'Modifica la mia risposta →',
     yourAvail:'Quando puoi?',avYes:'✅ Sì',avMaybe:'🤔 Forse',avNo:'❌ Non posso',
-    maybeNote:"Aggiunto a "forse" — l'organizzatore lo vedrà.",
+    maybeNote:"Aggiunto a 'forse' — l'organizzatore lo vedrà.",
     bestTime:'A che ora preferisci?',howGet:'Come ci arrivi?',howOpt:'(opzionale)',
     car:'🚗 In auto',moto:'🏍️ In moto',transit:'🚇 Trasporto pubblico',taxi:'🚕 Taxi/Uber',walk:'🚶 A piedi',bike:'🚲 Bici',other:'✏️ Altro',otherPh:'Come ci arrivi?',
     commentLbl:'💬 Commento (opzionale)',commentPh:"Non vedo l'ora! / Arrivo un po' in ritardo / ...",
@@ -1593,12 +1593,12 @@ function OutfitCard({dressCode, dressNote, city, date, mc, c, lang, t}){
   },[city,date]);
   const tip=getOutfitTip(dressCode,weather?.code,weather?.max,weather?.min,lang);
   const label=t.dressCodes.find(d=>d.k===dressCode)?.l||dressCode;
-  return(<div style={{background:`${mc}12`,border:`1px solid ${mc}35`,borderRadius:"14px",padding:"16px",marginBottom:"16px"}}>
-    <div style={{fontSize:"11px",color:mc,fontWeight:"700",letterSpacing:".08em",textTransform:"uppercase",marginBottom:"8px"}}>{isEs?"Dress code del plan":"Plan dress code"}</div>
-    <div style={{fontSize:"18px",fontWeight:"600",color:c.T,marginBottom:"10px"}}>{label}</div>
-    {tip&&<div style={{fontSize:"13px",color:c.T,lineHeight:1.6,marginBottom:tip.wtip?"10px":"0"}}>{tip.base}</div>}
-    {tip?.wtip&&<div style={{fontSize:"13px",color:c.T,padding:"10px 12px",background:c.CARD2,borderRadius:"8px",borderLeft:`3px solid ${mc}`,lineHeight:1.5,marginTop:"6px"}}>{tip.wtip}</div>}
-    {dressNote&&<div style={{fontSize:"12px",color:c.M2,marginTop:"10px",fontStyle:"italic"}}>"{dressNote}"</div>}
+  return(<div style={{background:`${mc}12`,border:`1px solid ${mc}35`,borderRadius:"14px',padding:'16px",marginBottom:"16px"}}>
+    <div style={{fontSize:"11px',color:mc,fontWeight:'700",letterSpacing:".08em',textTransform:'uppercase",marginBottom:"8px'}}>{isEs?'Dress code del plan":"Plan dress code"}</div>
+    <div style={{fontSize:"18px',fontWeight:'600",color:c.T,marginBottom:"10px"}}>{label}</div>
+    {tip&&<div style={{fontSize:"13px',color:c.T,lineHeight:1.6,marginBottom:tip.wtip?'10px":"0"}}>{tip.base}</div>}
+    {tip?.wtip&&<div style={{fontSize:"13px',color:c.T,padding:'10px 12px",background:c.CARD2,borderRadius:"8px',borderLeft:`3px solid ${mc}`,lineHeight:1.5,marginTop:'6px"}}>{tip.wtip}</div>}
+    {dressNote&&<div style={{fontSize:"12px',color:c.M2,marginTop:'10px",fontStyle:"italic'}}>'{dressNote}"</div>}
   </div>);
 }
 
