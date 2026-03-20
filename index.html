@@ -962,7 +962,7 @@ function PlanPreview({plan,onRespond,onBack,c,lang}){
     <div style={{padding:'24px'}}>
       {plan.confirmedDate&&<div style={{background:`${mc}15`,border:`1px solid ${mc}50`,borderRadius:'12px',padding:'12px 14px',marginBottom:'16px',display:'flex',gap:'10px',alignItems:'center'}}><div style={{fontSize:'18px'}}>📌</div><div><div style={{fontSize:'11px',color:mc,fontWeight:'700',textTransform:'uppercase',letterSpacing:'.06em',marginBottom:'2px'}}>{t.confirmedDate}</div><div style={{fontSize:'14px',color:c.T,fontWeight:'600',textTransform:'capitalize'}}>{fmtDate(plan.confirmedDate,lang)}</div></div></div>}
       {plan.desc&&<p style={{fontSize:'14px',color:c.T,lineHeight:1.7,marginBottom:'16px',padding:'12px 14px',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px'}}>{plan.desc}</p>}
-      {plan.surpriseMode&&!plan.confirmedDate&&<div style={{background:`${mc}10`,border:`1px solid ${mc}30`,borderRadius:'12px',padding:'14px',marginBottom:'16px',textAlign:'center'}}><div style={{fontSize:'28px',marginBottom:'6px'}}>🎭</div><div style={{fontSize:'14px',color:mc,fontWeight:'600',marginBottom:'4px'}}>{isEs?'¡Es una sorpresa!':'It's a surprise!'}</div><div style={{fontSize:'12px',color:c.M2}}>{isEs?'El destino se revela cuando el organizador confirme la fecha.':'The destination is revealed when the organiser confirms the date.'}</div></div>}
+      {plan.surpriseMode&&!plan.confirmedDate&&<div style={{background:`${mc}10`,border:`1px solid ${mc}30`,borderRadius:'12px',padding:'14px',marginBottom:'16px',textAlign:'center'}}><div style={{fontSize:'28px',marginBottom:'6px'}}>🎭</div><div style={{fontSize:'14px',color:mc,fontWeight:'600',marginBottom:'4px'}}>{isEs?'¡Es una sorpresa!':'It\'s a surprise!'}</div><div style={{fontSize:'12px',color:c.M2}}>{isEs?'El destino se revela cuando el organizador confirme la fecha.':'The destination is revealed when the organiser confirms the date.'}</div></div>}
       {plan.dates?.length>0&&<div style={{marginBottom:'16px'}}>
         <Lbl c={c}>📅 {t.previewDates}</Lbl>
         <div style={{display:'flex',flexWrap:'wrap',gap:'6px'}}>
@@ -1032,6 +1032,7 @@ function Respond({plan,onBack,onDone,onCreateOwn,c,lang:appLang}){
       <Btn onClick={onCreateOwn} style={{padding:'11px 24px',background:mc,color:'#0A0A0A'}} c={c}>{t.viralBtn}</Btn>
     </div>
   </div>);
+  }
   return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
     <Back onClick={()=>{if(Object.keys(avail).length>0&&!window.confirm(isEs?'¿Salir? Perderás los cambios no guardados.':'Exit? Unsaved changes will be lost.'))return;onBack();}} label={t.back} c={c}/>
     <div style={{background:`${mc}10`,border:`1px solid ${mc}30`,borderRadius:'12px',padding:'12px 14px',marginBottom:'16px',display:'flex',alignItems:'center',gap:'10px'}}>
