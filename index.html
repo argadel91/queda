@@ -1057,7 +1057,7 @@ function RouteMap({stops,c}){
 
 // ─── WEATHER WIDGET ───────────────────────────────────
 function WeatherWidget({city,date,c,lang,showAdvice=false}){
-  const t=T[lang];const isEs=lang==='es';
+  const t=T[lang];
   const[w,setW]=useState(null);const[state,setState]=useState('idle');
   useEffect(()=>{
     if(!city||!date){setState('idle');return;}
