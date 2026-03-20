@@ -2935,7 +2935,8 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
 // ─── AUTH SCREEN ─────────────────────────────────────
 function AuthScreen({onAuth,c,lang}){
   const t=T[lang];const isEs=lang==='es';
-  const[step,setStep]=useState('email'); // email | otp | name
+  const[step,setStep]=useState('email');
+  const[langMenuOpen,setLangMenuOpen]=useState(false); // email | otp | name
   const[email,setEmail]=useState('');
   const[otp,setOtp]=useState('');
   const[name,setName]=useState('');
