@@ -46,17 +46,20 @@ const saveResp=async(planId,name,resp)=>{try{const{data:ex}=await db.from('respo
 const loadResps=async id=>{try{const{data}=await db.from('responses').select('data').eq('plan_id',id);return(data||[]).map(r=>r.data);}catch{return[];}};
 
 // ─── AUTH ─────────────────────────────────────────────
-const authSignIn=async(email)=>{
-  const{error}=await db.auth.signInWithOtp({email,options:{emailRedirectTo:location.href.split('?')[0]}});
-  return{error};
+const authSignUp=async(email,password)=>{
+  const{data,error}=await db.auth.signUp({email,password});
+  return{data,error};
 };
-const authVerifyOtp=async(email,token)=>{
-  const{data,error}=await db.auth.verifyOtp({email,token,type:'magiclink'});
+const authSignIn=async(email,password)=>{
+  const{data,error}=await db.auth.signInWithPassword({email,password});
   return{data,error};
 };
 const authSignOut=async()=>{await db.auth.signOut();};
+const authResetPassword=async(email)=>{
+  const{error}=await db.auth.resetPasswordForEmail(email,{redirectTo:location.href.split('?')[0].split('#')[0]});
+  return{error};
+};
 const getSession=async()=>{const{data}=await db.auth.getSession();return data?.session||null;};
-const getUser=async()=>{const{data}=await db.auth.getUser();return data?.user||null;};
 const loadProfile=async(uid)=>{try{const{data}=await db.from('profiles').select('*').eq('id',uid).maybeSingle();return data;}catch{return null;}};
 const saveProfile=async(uid,prof)=>{try{await db.from('profiles').upsert({id:uid,...prof,updated_at:new Date().toISOString()});}catch(e){console.error(e);}};
 const savePlanWithUser=async(p,uid)=>{
@@ -67,8 +70,7 @@ const savePlanWithUser=async(p,uid)=>{
     catch(e2){showErr('Error guardando el plan. Comprueba tu conexión.');throw e2;}
   }
 };
-const loadUserPlans=async(uid)=>{try{const{data}=await db.from('plans').select('data,created_at').eq('user_id',uid).order('created_at',{ascending:false}).limit(50);return(data||[]).map(r=>r.data);}catch{return[];}};
-const loadUserResponses=async(uid)=>{try{const{data}=await db.from('responses').select('plan_id,data').eq('user_id',uid).order('created_at',{ascending:false}).limit(50);return data||[];}catch{return[];}};
+
 
 // ─── STORAGE ─────────────────────────────────────────
 const ls={get:(k,d)=>{try{const v=localStorage.getItem(k);return v!=null?JSON.parse(v):d;}catch{return d;}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}}};
@@ -90,7 +92,6 @@ const daysUntil=iso=>Math.round((new Date(iso+'T12:00:00')-dayStart())/86400000)
 const getSysTheme=()=>window.matchMedia?.('(prefers-color-scheme:dark)').matches?'dark':'light';
 const applyTheme=t=>{document.body.className=t;};
 const C=t=>t==='dark'?{A:'#CDFF6C',BG:'#0A0A0A',CARD:'#141414',CARD2:'#1C1C1C',BD:'#2A2A2A',T:'#F0EBE1',M:'#555',M2:'#888'}:{A:'#4A8800',BG:'#F5F4F1',CARD:'#FFFFFF',CARD2:'#EEECE8',BD:'#DDDAD3',T:'#1A1A1A',M:'#999',M2:'#666'};
-const MC={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
 const MC_DARK={social:'#CDFF6C',intimate:'#F472B6',professional:'#60A5FA'};
 const MC_LIGHT={social:'#3A7D00',intimate:'#B5006E',professional:'#1565C0'};
 const getMC=(mode,c)=>{const isDark=c?.BG==='#0A0A0A';return(isDark?MC_DARK:MC_LIGHT)[mode||'social']||c?.A||'#CDFF6C';};
@@ -422,6 +423,12 @@ const T={
     datesSuggestedLbl:`Fechas sugeridas por invitados`,
     perPersonLbl:`Por persona`,
     weSentLinkTo:`Hemos enviado un link mágico a`,
+    allLbl:`Todos`,
+    addLbl:`Añadir`,
+    firstAvailable:`Primera fecha disponible`,
+    notifyOrg:`Avisar al organizador`,
+    makePublicTitle:`Haz el plan público para que aparezca en Descubrir`,
+    confirmBtn2:`Confirmar`,
     cat:['🍽️ Restaurante','🍸 Bar','🎉 Discoteca','☕ Café','🎭 Actividad','🏠 Casa','🍕 Informal','📍 Otro'],
   },
   en:{
@@ -674,6 +681,12 @@ const T={
     datesSuggestedLbl:`Dates suggested by guests`,
     perPersonLbl:`Per person`,
     weSentLinkTo:`We sent a magic link to`,
+    allLbl:`All`,
+    addLbl:`Add`,
+    firstAvailable:`First available date`,
+    notifyOrg:`Notify organiser`,
+    makePublicTitle:`Make the plan public so it appears in Discover`,
+    confirmBtn2:`Confirm`,
     cat:['🍽️ Restaurant','🍸 Bar','🎉 Club','☕ Café','🎭 Activity','🏠 Home','🍕 Casual','📍 Other'],
   },
   pt:{
@@ -907,6 +920,26 @@ const T={
     datesSuggestedLbl:`Datas sugeridas pelos convidados`,
     perPersonLbl:`Por pessoa`,
     weSentLinkTo:`Enviámos um link mágico para`,
+    avYes:`✅ Sim`,
+    savedTitle:`Guardado!`,
+    noResp:`Ninguém respondeu ainda`,
+    confirmThis:`📌 Confirmar esta data`,
+    giftSec:`🎁 Presente coletivo`,
+    tooEarlyT:`É ainda cedo para saber`,
+    cityNotFound:`Cidade não encontrada.`,
+    organizer:`Organizador`,
+    comments:`Comentários`,
+    yourRole:`O teu papel`,
+    privatePlanLbl:`🔒 Plano privado`,
+    publicPlanLbl:`🌍 Plano público`,
+    privatePlanSub:`Apenas acessível com o código.`,
+    publicPlanSub:`Visível em Descobrir.`,
+    allLbl:`Todos`,
+    addLbl:`Adicionar`,
+    firstAvailable:`Primeira data disponível`,
+    notifyOrg:`Avisar o organizador`,
+    makePublicTitle:`Torna o plano público para aparecer em Descobrir`,
+    confirmBtn2:`Confirmar`,
     cat:['🍽️ Restaurante','🍸 Bar','🎉 Discoteca','☕ Café','🎭 Atividade','🏠 Casa','🍕 Informal','📍 Outro'],
   },
   fr:{
@@ -1147,6 +1180,28 @@ const T={
     datesSuggestedLbl:`Dates suggérées par les invités`,
     perPersonLbl:`Par personne`,
     weSentLinkTo:`Nous avons envoyé un lien magique à`,
+    extrasTitle:`Extras`,
+    createBtn:`Créer le plan 🎉`,
+    avYes:`✅ Oui`,
+    savedTitle:`Enregistré !`,
+    noResp:`Personne n'a répondu pour l'instant`,
+    confirmThis:`📌 Confirmer cette date`,
+    giftSec:`🎁 Cadeau collectif`,
+    tooEarlyT:`Trop tôt pour le savoir`,
+    cityNotFound:`Ville introuvable.`,
+    organizer:`Organisateur`,
+    comments:`Commentaires`,
+    yourRole:`Ton rôle`,
+    privatePlanLbl:`🔒 Plan privé`,
+    publicPlanLbl:`🌍 Plan public`,
+    privatePlanSub:`Accessible uniquement avec le code.`,
+    publicPlanSub:`Visible dans Découvrir.`,
+    allLbl:`Tous`,
+    addLbl:`Ajouter`,
+    firstAvailable:`Première date disponible`,
+    notifyOrg:`Notifier l'organisateur`,
+    makePublicTitle:`Rends le plan public pour qu'il apparaisse dans Découvrir`,
+    confirmBtn2:`Confirmer`,
     cat:[`🍽️ Restaurant`,`🍸 Bar`,`🎉 Boîte de nuit`,`☕ Café`,`🎭 Activité`,`🏠 Maison`,`🍕 Informel`,`📍 Autre`],
     estPer:`Estimé par personne`,
   },
@@ -1379,6 +1434,28 @@ const T={
     datesSuggestedLbl:`Von Gästen vorgeschlagene Termine`,
     perPersonLbl:`Pro Person`,
     weSentLinkTo:`Wir haben einen Magic Link gesendet an`,
+    extrasTitle:`Extras`,
+    createBtn:`Plan erstellen 🎉`,
+    avYes:`✅ Ja`,
+    savedTitle:`Gespeichert!`,
+    noResp:`Noch niemand hat geantwortet`,
+    confirmThis:`📌 Diesen Termin bestätigen`,
+    giftSec:`🎁 Gruppengeschenk`,
+    tooEarlyT:`Noch zu früh`,
+    cityNotFound:`Stadt nicht gefunden.`,
+    organizer:`Organisator`,
+    comments:`Kommentare`,
+    yourRole:`Deine Rolle`,
+    privatePlanLbl:`🔒 Privater Plan`,
+    publicPlanLbl:`🌍 Öffentlicher Plan`,
+    privatePlanSub:`Nur mit dem Code zugänglich.`,
+    publicPlanSub:`Sichtbar in Entdecken.`,
+    allLbl:`Alle`,
+    addLbl:`Hinzufügen`,
+    firstAvailable:`Erster verfügbarer Termin`,
+    notifyOrg:`Organisator benachrichtigen`,
+    makePublicTitle:`Plan öffentlich machen damit er in Entdecken erscheint`,
+    confirmBtn2:`Bestätigen`,
     cat:['🍽️ Restaurant','🍸 Bar','🎉 Club','☕ Café','🎭 Aktivität','🏠 Zuhause','🍕 Casual','📍 Andere'],
   },
   it:{
@@ -1480,6 +1557,167 @@ const T={
     authAliasHint:`Solo lettere, numeri, punti e underscore. Si può cambiare in seguito.`,
     authDisplayName:`Nome visualizzato`,
     authAliasPlaceholder:`il_tuo_alias`,
+    extrasTitle:`Extra`,
+    createBtn:`Crea piano 🎉`,
+    avYes:`✅ Sì`,
+    savedTitle:`Salvato!`,
+    noResp:`Nessuno ha ancora risposto`,
+    confirmThis:`📌 Conferma questa data`,
+    giftSec:`🎁 Regalo collettivo`,
+    tooEarlyT:`È ancora presto per saperlo`,
+    cityNotFound:`Città non trovata.`,
+    organizer:`Organizzatore`,
+    comments:`Commenti`,
+    yourRole:`Il tuo ruolo`,
+    signOut:`Esci`,
+    editName:`Il tuo nome`,
+    todayLbl:`Oggi!`,
+    tomorrowLbl:`Domani!`,
+    viewPlan:`Vedi piano`,
+    deletePlan:`Elimina piano`,
+    leavePlan:`Lascia piano`,
+    changeDate:`Cambia data`,
+    allNo:`Tutto No`,
+    allYes:`Segna tutto Sì`,
+    autoConfirmLbl:`⚡ Prima data disponibile`,
+    autoConfirmSub:`Conferma automaticamente quando X persone dicono Sì`,
+    surpriseModeLbl:`🎭 Modalità sorpresa`,
+    surpriseModeSub:`La destinazione si rivela alla conferma della data`,
+    surpriseRevealLbl:`È una sorpresa!`,
+    surpriseRevealSub:`La destinazione si rivela quando l'organizzatore conferma la data.`,
+    accommodation:`🏨 Ti fermi a dormire?`,
+    accommodationSub:`Se la notte si allunga — alloggi vicini:`,
+    ifNightRunsOn:`Se la notte si allunga...`,
+    continueParty:`Continuare la festa? Trova club o bar vicini.`,
+    taxiTip:`Se bevi, prenota un taxi in anticipo — i prezzi salgono di notte.`,
+    burgerTip:`Hamburger a notte fonda? I posti migliori hanno sempre la fila.`,
+    breakfastTip:`Se esci fino all'alba, la colazione è sacra.`,
+    specialNightTip:`Una notte speciale merita il miglior alloggio.`,
+    gettingThereLbl:`⏱️ Come arrivare`,
+    publicTransportLbl:`🚇 Trasporto pubblico`,
+    flightsLbl:`✈️ Voli`,
+    distWalk:`Puoi andare a piedi — meno di 1km`,
+    suggestBike:`km — ideale in bici`,
+    suggestCar:`km — in auto o trasporto pubblico`,
+    suggestTrain:`km — considera il treno`,
+    suggestFlight:`km — viaggio lungo, considera un volo`,
+    pollQuestion:`Sondaggio rapido (opzionale)`,
+    addPollOption:`+ Aggiungi opzione`,
+    datesSuggested:`Date suggerite dagli invitati`,
+    planCard:`🃏 Biglietto del piano`,
+    screenshotShare:`Fai screenshot e condividi 📱`,
+    splitExpenses:`💰 Dividere le spese`,
+    splitExpensesSub:`Aggiungi spese e calcola chi deve cosa`,
+    addExpense:`+ Aggiungi spesa`,
+    whoExpense:`Chi ha pagato?`,
+    whatExpense:`Cosa è stato? (cena, taxi...)`,
+    transfers:`Bonifici per saldare`,
+    allSettled:`Tutto saldato!`,
+    savedGroups:`👥 Gruppi salvati`,
+    saveGroup:`Salva`,
+    postPlanTitle:`📋 Com'è andata?`,
+    rateQuestion:`Come valuteresti il piano?`,
+    repeatQuestion:`Lo rifareste?`,
+    feedbackPh:`Cosa migliorereste la prossima volta? (opzionale)`,
+    submitSurvey:`Invia →`,
+    skipSurvey:`Salta`,
+    maxGuests:`Partecipanti max (opzionale)`,
+    willAttend:`Parteciperai?`,
+    orgAttends:`Sì`,
+    orgNotAttends:`No`,
+    noLimit:`Nessun limite`,
+    stayingOvernight:`Ti fermi a dormire?`,
+    venueGoogleMaps:`Vedi su Google Maps`,
+    venueVegetarian:`🥗 Vegetariano`,
+    venueTerrace:`🌿 Terrazza`,
+    payOrgPhone:`Telefono dell'organizzatore`,
+    payDescription:`Descrizione`,
+    payPrint:`Stampa`,
+    discoverSearch:`Cerca per città o nome...`,
+    privatePlan:`Piano privato`,
+    appearsInDiscover:`Appare in Scopri`,
+    codeOnly:`Solo con codice`,
+    yourZone:`La tua zona:`,
+    weatherForecast:`Previsioni meteo`,
+    moreDates:`altre date`,
+    searchOnMap:`Cerca e seleziona sulla mappa`,
+    removeStop:`Rimuovi tappa`,
+    locationSet:`Posizione selezionata`,
+    confirmWith:`Conferma con`,
+    peopleLbl:`persone`,
+    removeItem:`Rimuovi elemento`,
+    pollPlaceholder:`Ristorante italiano o giapponese?`,
+    optionLbl:`Opzione`,
+    personalisedLinkLbl:`Link personalizzato`,
+    guestNamePh:`Nome dell'invitato...`,
+    copiedLbl:`✓ Copiato`,
+    copyLbl:`Copia`,
+    personLbl:`persona`,
+    prevRespLbl:`La tua risposta precedente`,
+    respUpdated:`Risposta aggiornata`,
+    unsavedWarning:`Uscire? Le modifiche non salvate andranno perse.`,
+    intimateAvail:`Per te... quando ti va bene?`,
+    proAvail:`Quando è disponibile?`,
+    markIndividually:`Segna ogni data e ora individualmente.`,
+    markAllNoTitle:`Segna tutti gli orari come Non posso`,
+    allNoLbl:`Tutto No`,
+    markAllYesTitle:`Segna tutte le date come Sì`,
+    allYesLbl:`Segna tutto Sì`,
+    noDateWorks:`Nessuna data va bene. Ne proponi un'altra?`,
+    optionalNote:`Nota opzionale...`,
+    confirmAttendance:`Conferma partecipazione →`,
+    confirmBtn:`Conferma →`,
+    newResponse:`Nuova risposta da `,
+    daysLbl:`giorni`,
+    shareWATitle:`Condividi su WhatsApp`,
+    copyLinkTitle:`Copia link`,
+    enableNotif:`Attiva notifiche`,
+    refreshResp:`Aggiorna risposte`,
+    waGroupMsg:`Invia messaggio WhatsApp al gruppo con la data confermata`,
+    waReminderMsg:`Invia un promemoria del piano via WhatsApp`,
+    addToCalendar:`Aggiungi al calendario`,
+    confirmDateTitle:`Conferma questa data per tutto il gruppo`,
+    detailPerPerson:`Dettaglio per persona`,
+    noStopsMsg:`Questo piano non ha tappe definite.`,
+    bookLbl:`Prenota`,
+    giftLbl:`regalo`,
+    payArrow:`Paga →`,
+    whatToWear:`Cosa indossare?`,
+    firstImpressions:`La prima impressione conta.`,
+    rightLook:`Il look giusto per l'ambiente.`,
+    howWasIt:`Com'è andata?`,
+    rateThePlan:`Come valuteresti il piano?`,
+    wouldRepeat:`Lo rifareste?`,
+    maybeLbl:`Forse`,
+    improveNext:`Cosa migliorereste la prossima volta? (opzionale)`,
+    savedGroupsLbl:`Gruppi salvati`,
+    saveGroupBtn:`Salva`,
+    groupNamePh:`Nome del gruppo (es: I soliti)`,
+    groupForPlan:`Gruppo per questo piano`,
+    splitExpensesLbl:`Dividere le spese`,
+    planExpenses:`Spese del piano`,
+    addExpenseLbl:`Aggiungi spesa`,
+    whoPaidLbl:`Chi ha pagato?`,
+    meOrganiser:`Io (organizzatore)`,
+    whatWasIt:`Cosa è stato? (cena, taxi...)`,
+    transfersLbl:`Bonifici per saldare`,
+    allSettledLbl:`Tutto saldato!`,
+    dresscodeOfPlan:`Dress code del piano`,
+    dateConfirmedMsg:`data confermata!`,
+    hintScreenshot:`Fai screenshot e condividi 📱`,
+    datesSuggestedLbl:`Date suggerite dagli invitati`,
+    perPersonLbl:`A persona`,
+    weSentLinkTo:`Abbiamo inviato un link magico a`,
+    privatePlanLbl:`🔒 Piano privato`,
+    publicPlanLbl:`🌍 Piano pubblico`,
+    privatePlanSub:`Accessibile solo con il codice. Non appare in Scopri.`,
+    publicPlanSub:`Visibile in Scopri. Chiunque può unirsi con il codice.`,
+    allLbl:`Tutti`,
+    addLbl:`Aggiungi`,
+    firstAvailable:`Prima data disponibile`,
+    notifyOrg:`Avvisa l'organizzatore`,
+    makePublicTitle:`Rendi il piano pubblico per farlo apparire in Scopri`,
+    confirmBtn2:`Conferma`,
     cat:[`🍽️ Ristorante`,`🍸 Bar`,`🎉 Discoteca`,`☕ Caffè`,`🎭 Attività`,`🏠 Casa`,`🍕 Informale`,`📍 Altro`],
     estPer:`Stimato a persona`,
   },
@@ -1655,6 +1893,7 @@ function WeatherWidget({city,date,c,lang,showAdvice=false}){
 
 // ─── VENUE INFO ───────────────────────────────────────
 function VenueInfo({name,lat,lng,c,lang}){
+  const t=T[lang];const isEs=lang==='es';
   const[info,setInfo]=useState(null);const[tried,setTried]=useState(false);
   const isEs=lang==='es';
   useEffect(()=>{if(!lat||!lng||tried)return;setTried(true);fetchVenue(name,lat,lng).then(setInfo);},[lat,lng]);
@@ -1685,10 +1924,10 @@ function TransportPanel({to,planCity,c,lang}){
     if(carR){
       const distKm=parseFloat(carR.dist);setRoadDist(distKm);
       if(distKm<1)setSuggestion({icon:'🚶',msg:isEs?'Puedes ir andando — menos de 1km':'You can walk — less than 1km'});
-      else if(distKm<5)setSuggestion({icon:'🚲',msg:isEs?`${distKm}km — ideal para bici o patinete`:`${distKm}km — great for cycling`});
-      else if(distKm<30)setSuggestion({icon:'🚗',msg:isEs?`${distKm}km — en coche o transporte público`:`${distKm}km — by car or public transport`});
-      else if(distKm<300)setSuggestion({icon:'🚂',msg:isEs?`${distKm}km — considera el tren`:`${distKm}km — consider the train`});
-      else setSuggestion({icon:'✈️',msg:isEs?`${distKm}km — viaje largo, considera un vuelo`:`${distKm}km — long trip, consider a flight`});
+      else if(distKm<5)setSuggestion({icon:'🚲',msg:`${distKm}km — ${isEs?'ideal para bici o patinete':'great for cycling'}`});
+      else if(distKm<30)setSuggestion({icon:'🚗',msg:`${distKm}km — ${isEs?'en coche o transporte público':'by car or public transport'}`});
+      else if(distKm<300)setSuggestion({icon:'🚂',msg:`${distKm}km — ${isEs?'considera el tren':'consider the train'}`});
+      else setSuggestion({icon:'✈️',msg:`${distKm}km — ${isEs?'viaje largo, considera un vuelo':'long trip, consider a flight'}`});
     }
     setTimes(res);setL(false);
   },()=>setAsked(false),{timeout:8000});};
@@ -1728,7 +1967,7 @@ function TransportPanel({to,planCity,c,lang}){
 
 // ─── PAYMENT MODAL ────────────────────────────────────
 function PayModal({plan,amount,onClose,c,lang}){
-  const isEs=lang==='es';const[tab,setTab]=useState('bizum');
+  const t=T[lang];const isEs=lang==='es';const[tab,setTab]=useState('bizum');
   const[bizum,setBizum]=useState(plan.payment?.bizumPhone||'');const[paypal,setPaypal]=useState(plan.payment?.paypalUser||'');const[revolut,setRevolut]=useState(plan.payment?.revolutUser||'');const[stripe,setStripe]=useState(plan.gift?.stripeLink||'');
   const amt=amount||'?';const tabs=[{k:'bizum',l:'📱 Bizum'},{k:'paypal',l:'🅿️ PayPal'},{k:'revolut',l:'🔄 Revolut'},{k:'stripe',l:'💳 Stripe'},{k:'invoice',l:'🧾 Factura'}];
   return(<div style={{position:'fixed',inset:0,background:'rgba(0,0,0,.85)',display:'flex',alignItems:'flex-end',justifyContent:'center',zIndex:100}} onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
@@ -1766,22 +2005,6 @@ function PayModal({plan,amount,onClose,c,lang}){
   </div>);
 }
 
-
-// ─── ONBOARDING ───────────────────────────────────────
-function Onboarding({onDone,c,lang}){
-  const t=T[lang];const[step,setStep]=useState(0);const s=t.onb[step];
-  const cc=['#CDFF6C','#60A5FA','#F472B6','#CDFF6C'][step];
-  return(<div style={{minHeight:'100vh',background:c.BG,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'32px 24px'}}>
-    <div style={{maxWidth:'380px',width:'100%',textAlign:'center'}}>
-      <div style={{display:'flex',justifyContent:'center',gap:'8px',marginBottom:'40px'}}>{t.onb.map((_,i)=><div key={i} style={{width:i===step?24:8,height:8,borderRadius:'4px',background:i===step?cc:c.BD,transition:'all .3s'}}/>)}</div>
-      <div style={{fontSize:'72px',marginBottom:'24px'}}>{s.e}</div>
-      <h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:c.T,marginBottom:'12px',lineHeight:1.1}}>{s.t}</h2>
-      <p style={{fontSize:'16px',color:c.M2,lineHeight:1.7,marginBottom:'48px'}}>{s.d}</p>
-      <button onClick={()=>{if(step<t.onb.length-1)setStep(s=>s+1);else onDone();}} style={{width:'100%',padding:'16px',borderRadius:'14px',border:'none',background:cc,color:'#0A0A0A',fontSize:'16px',fontWeight:'700',cursor:'pointer',fontFamily:'inherit',marginBottom:'10px'}}>{step<t.onb.length-1?t.next:t.start}</button>
-      {step<t.onb.length-1&&<button onClick={onDone} style={{width:'100%',padding:'12px',borderRadius:'14px',border:'none',background:'transparent',color:c.M,fontSize:'14px',cursor:'pointer',fontFamily:'inherit'}}>{t.skip}</button>}
-    </div>
-  </div>);
-}
 
 // ─── MODE SELECT ──────────────────────────────────────
 function ModeSelect({onSelect,onBack,c,lang}){
@@ -1945,7 +2168,7 @@ function Discover({onBack,onJoin,c,lang}){
     const matchMode=modeF==='all'||p.mode===modeF;
     return matchText&&matchMode;
   });
-  const modes=[{k:'all',l:isEs?'Todos':'All'},{k:'social',l:'👥 Social'},{k:'intimate',l:'💘 Íntimo'},{k:'professional',l:'💼 Pro'}];
+  const modes=[{k:'all',l:t.allLbl},{k:'social',l:'👥 Social'},{k:'intimate',l:'💘 Íntimo'},{k:'professional',l:'💼 Pro'}];
   return(<div style={{padding:'24px',maxWidth:'420px',margin:'0 auto'}}>
     <Back onClick={onBack} label={t.back} c={c}/>
     <h2 style={{fontFamily:"'Syne',serif",fontSize:'26px',fontWeight:'800',color:c.T,marginBottom:'4px'}}>{t.discoverT}</h2>
@@ -2109,7 +2332,7 @@ function Create({onBack,onCreated,c,lang,mode,authUser,profile}){
           <div onClick={()=>setAutoConfirm(a=>!a)} style={{display:'flex',alignItems:'center',gap:'12px',padding:'14px 16px',background:c.CARD,border:`1px solid ${autoConfirm?mc+'50':c.BD}`,borderRadius:'12px',cursor:'pointer'}}>
             <div style={{width:'22px',height:'22px',borderRadius:'50%',border:`2px solid ${autoConfirm?mc:c.BD}`,background:autoConfirm?mc:'transparent',display:'flex',alignItems:'center',justifyContent:'center',fontSize:'12px',color:'#0A0A0A',fontWeight:'800',flexShrink:0}}>{autoConfirm?'✓':''}</div>
             <div>
-              <div style={{fontSize:'14px',color:c.T,fontWeight:'500'}}>⚡ {isEs?'Primera fecha disponible':'First available date'}</div>
+              <div style={{fontSize:'14px',color:c.T,fontWeight:'500'}}>⚡ {t.firstAvailable}</div>
               <div style={{fontSize:'12px',color:c.M2}}>{isEs?'Confirma automáticamente cuando X personas digan Sí':'Auto-confirms when X people say Yes'}</div>
             </div>
           </div>
@@ -2147,14 +2370,14 @@ function Create({onBack,onCreated,c,lang,mode,authUser,profile}){
         </div>
         {/* POLL */}
         <div style={{marginBottom:'20px'}}>
-          <Lbl c={c}>🗳️ {isEs?'Encuesta rápida (opcional)':'Quick poll (optional)'}</Lbl>
+          <Lbl c={c}>🗳️ {t.pollQuestion}</Lbl>
           <input value={poll.q} onChange={e=>setPoll(p=>({...p,q:e.target.value}))} placeholder={t.pollPlaceholder} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'10px 14px',color:c.T,fontSize:'14px',fontFamily:'inherit',outline:'none',width:'100%',boxSizing:'border-box',marginBottom:'8px'}}/>
           {poll.q.trim()&&<div style={{display:'flex',flexDirection:'column',gap:'6px'}}>
             {poll.opts.map((o,i)=><div key={i} style={{display:'flex',gap:'6px'}}>
               <input value={o} onChange={e=>setPoll(p=>({...p,opts:p.opts.map((x,j)=>j===i?e.target.value:x)}))} placeholder={`${t.optionLbl} ${i+1}`} style={{flex:1,background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'8px 12px',color:c.T,fontSize:'13px',fontFamily:'inherit',outline:'none'}}/>
               {poll.opts.length>2&&<button onClick={()=>setPoll(p=>({...p,opts:p.opts.filter((_,j)=>j!==i)}))} style={{background:'none',border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',color:c.M,cursor:'pointer',fontSize:'14px'}}>×</button>}
             </div>)}
-            {poll.opts.length<5&&<button onClick={()=>setPoll(p=>({...p,opts:[...p.opts,'']}))} style={{background:'none',border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'7px',color:c.M2,cursor:'pointer',fontFamily:'inherit',fontSize:'12px'}}>+ {isEs?'Añadir opción':'Add option'}</button>}
+            {poll.opts.length<5&&<button onClick={()=>setPoll(p=>({...p,opts:[...p.opts,'']}))} style={{background:'none',border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'7px',color:c.M2,cursor:'pointer',fontFamily:'inherit',fontSize:'12px'}}>+ {t.addPollOption}</button>}
           </div>}
         </div>
         {/* PAYMENT */}
@@ -2210,7 +2433,7 @@ function Share({plan,onViewResults,onBack,c,lang}){
 
 // ─── PERSONALISED LINK ───────────────────────────────
 function PersonalisedLink({plan,c,lang}){
-  const isEs=lang==='es'; const mc=getMC(plan.mode,c);
+  const t=T[lang];const isEs=lang==='es'; const mc=getMC(plan.mode,c);
   const[name,setName]=useState('');const[copied,setCopied]=useState(false);
   const base=location.href.split('?')[0];
   const url=name.trim()?`${base}?code=${plan.id}&name=${encodeURIComponent(name.trim())}`:null;
@@ -2308,7 +2531,7 @@ function Respond({plan,onBack,onDone,onCreateOwn,c,lang:appLang,authUser,profile
     <div style={{fontSize:'64px',marginBottom:'20px'}}>{plan.mode==='intimate'?'💘':'🎉'}</div>
     <h2 style={{fontFamily:"'Syne',serif",fontSize:'28px',fontWeight:'800',color:mc,marginBottom:'10px'}}>{t.savedTitle}</h2>
     <p style={{color:c.M2,marginBottom:'20px'}}>{t.savedSub}</p>
-    {plan.organizer&&<a href={`https://wa.me/?text=${encodeURIComponent(waOrgText)}`} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',padding:'13px 20px',background:'#25D366',borderRadius:'12px',color:'#fff',textDecoration:'none',fontWeight:'700',fontSize:'14px',marginBottom:'16px'}}>💬 {isEs?`Avisar a ${plan.organizer}`:`Notify ${plan.organizer}`}</a>}
+    {plan.organizer&&<a href={`https://wa.me/?text=${encodeURIComponent(waOrgText)}`} target="_blank" rel="noreferrer" style={{display:'flex',alignItems:'center',justifyContent:'center',gap:'8px',padding:'13px 20px',background:'#25D366',borderRadius:'12px',color:'#fff',textDecoration:'none',fontWeight:'700',fontSize:'14px',marginBottom:'16px'}}>💬 {`${isEs?'Avisar a':'Notify'} ${plan.organizer}`}</a>}
     <div style={{background:`${mc}0D`,border:`1px solid ${mc}30`,borderRadius:'14px',padding:'20px'}}>
       <div style={{fontSize:'15px',fontWeight:'600',color:c.T,marginBottom:'6px'}}>{t.viralQ}</div>
       <div style={{fontSize:'13px',color:c.M2,marginBottom:'14px'}}>{t.viralSub}</div>
@@ -2412,14 +2635,14 @@ function AfterPlanSuggestions({plan, c, lang}){
     </div>
     {/* Smart after-plan tips */}
     <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'14px',padding:'16px'}}>
-      <div style={{fontSize:'13px',fontWeight:'600',color:c.T,marginBottom:'10px'}}>💡 {isEs?'Si la noche se alarga...':'If the night runs on...'}</div>
+      <div style={{fontSize:'13px',fontWeight:'600',color:c.T,marginBottom:'10px'}}>💡 {t.ifNightRunsOn}</div>
       <div style={{display:'flex',flexDirection:'column',gap:'8px'}}>
         {[
           {icon:'🚕',text:isEs?'Si bebes, pide un taxi de antemano — los precios suben de noche.':"If you're drinking, book a taxi in advance — prices surge at night.",link:'https://m.uber.com/',linkText:'Uber'},
           {icon:'🍔',text:isEs?'¿Hamburguesa de madrugada? Los mejores sitios siempre tienen cola.':'Late night burger? The best spots always have a queue.',link:null,linkText:null},
           {icon:'🎵',text:isEs?'¿Continuar la fiesta? Busca salas o bares de copas cercanos.':'Continue the party? Find nearby clubs or bars.',link:`https://www.google.com/maps/search/nightclub+near+${cityEnc}`,linkText:'Google Maps'},
           {icon:'🌅',text:isEs?'Si amaneces fuera, el desayuno es sagrado.':"If you're out till sunrise, breakfast is sacred.",link:`https://www.google.com/maps/search/breakfast+near+${cityEnc}`,linkText:'Google Maps'},
-          plan.mode==='intimate'?{icon:'🌹',text:isEs?'Una noche especial merece el mejor alojamiento.':'A special night deserves the best accommodation.',link:('https://www.airbnb.com/s/'+cityEnc+'/homes?room_types%5B%5D=Entire+home%2Fapt&checkin='+date),linkText:'Airbnb'}:null,
+          plan.mode==='intimate'?{icon:'🌹',text:t.specialNightTip,link:('https://www.airbnb.com/s/'+cityEnc+'/homes?room_types%5B%5D=Entire+home%2Fapt&checkin='+date),linkText:'Airbnb'}:null,
         ].filter(Boolean).map((tip,i)=><div key={i} style={{display:'flex',gap:'10px',alignItems:'flex-start',padding:'8px 0',borderBottom:i<4?`1px solid ${c.BD}`:'none'}}><span style={{fontSize:'18px',flexShrink:0}}>{tip.icon}</span><div><div style={{fontSize:'13px',color:c.T,lineHeight:1.5}}>{tip.text}</div>{tip.link&&<a href={tip.link} target="_blank" rel="noreferrer" style={{fontSize:'12px',color:mc,textDecoration:'none',fontWeight:'600'}}>{tip.linkText} →</a>}</div></div>)}
       </div>
     </div>
@@ -2429,7 +2652,7 @@ function AfterPlanSuggestions({plan, c, lang}){
 
 // ─── POST-PLAN SURVEY ────────────────────────────────
 function PostPlanSurvey({plan, c, lang, mc}){
-  const isEs=lang==='es';
+  const t=T[lang];const isEs=lang==='es';
   const key='q_survey_'+plan.id;
   const[done,setDone]=useState(!!ls.get(key,null));
   const[rating,setRating]=useState(0);
@@ -2454,8 +2677,8 @@ function PostPlanSurvey({plan, c, lang, mc}){
       </div>
     </div>
     <textarea value={feedback} onChange={e=>setFeedback(e.target.value)} placeholder={t.improveNext} rows={2} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'10px 12px',color:c.T,fontSize:'13px',fontFamily:'inherit',outline:'none',width:'100%',resize:'none',boxSizing:'border-box',marginBottom:'10px',lineHeight:1.5}}/>
-    <Btn onClick={submit} disabled={!rating||repeat===null} full style={{background:mc,color:'#0A0A0A',padding:'12px'}} c={c}>{isEs?'Enviar →':'Submit →'}</Btn>
-    <button onClick={()=>setDone(true)} style={{display:'block',width:'100%',background:'none',border:'none',color:c.M,cursor:'pointer',fontFamily:'inherit',fontSize:'12px',marginTop:'8px'}}>{isEs?'Saltar':'Skip'}</button>
+    <Btn onClick={submit} disabled={!rating||repeat===null} full style={{background:mc,color:'#0A0A0A',padding:'12px'}} c={c}>{t.submitSurvey}</Btn>
+    <button onClick={()=>setDone(true)} style={{display:'block',width:'100%',background:'none',border:'none',color:c.M,cursor:'pointer',fontFamily:'inherit',fontSize:'12px',marginTop:'8px'}}>{t.skipSurvey}</button>
   </div>);
 }
 
@@ -2465,7 +2688,7 @@ const getGroups=()=>ls.get('q_groups',[]);
 const saveGroups=g=>ls.set('q_groups',g);
 
 function SavedGroups({plan, c, lang}){
-  const isEs=lang==='es'; const mc=getMC(plan.mode,c);
+  const t=T[lang];const isEs=lang==='es'; const mc=getMC(plan.mode,c);
   const[groups,setGroups]=useState(getGroups());
   const[open,setOpen]=useState(false);
   const[newName,setNewName]=useState('');
@@ -2503,7 +2726,7 @@ function ExpenseSplitter({plan, rs, mc, c, lang}){
   const[expenses,setExp]=useState(()=>ls.get('q_exp_'+plan.id,[]));
   const[open,setOpen]=useState(false);
   const[who,setWho]=useState('');const[what,setWhat]=useState('');const[amt,setAmt]=useState('');
-  const attendees=rs.filter(r=>(plan.dates||[]).some(d=>r.avail?.[d]==='yes')).map(r=>r.name);
+  const attendees=(rs||[]).filter(r=>(plan.dates||[]).some(d=>r.avail?.[d]==='yes')).map(r=>r.name);
   const saveExp=exp=>{ls.set('q_exp_'+plan.id,exp);setExp(exp);};
   const add=()=>{if(!who||!what||!amt)return;const e=[...expenses,{id:Date.now(),who,what,amt:parseFloat(amt),at:new Date().toISOString()}];saveExp(e);setWho('');setWhat('');setAmt('');};
   const rem=id=>saveExp(expenses.filter(e=>e.id!==id));
@@ -2527,7 +2750,7 @@ function ExpenseSplitter({plan, rs, mc, c, lang}){
   }
   if(expenses.length===0&&!open)return(<div style={{background:c.CARD2,border:`1px solid ${c.BD}`,borderRadius:'12px',padding:'14px',display:'flex',justifyContent:'space-between',alignItems:'center'}}>
     <div><div style={{fontSize:'13px',color:c.T,fontWeight:'500'}}>💰 {t.splitExpensesLbl}</div><div style={{fontSize:'12px',color:c.M2}}>{t.splitExpensesSub}</div></div>
-    <button onClick={()=>setOpen(true)} style={{background:`${mc}20`,border:`1px solid ${mc}40`,borderRadius:'8px',padding:'7px 12px',color:mc,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',fontWeight:'600'}}>{isEs?'Añadir':'Add'}</button>
+    <button onClick={()=>setOpen(true)} style={{background:`${mc}20`,border:`1px solid ${mc}40`,borderRadius:'8px',padding:'7px 12px',color:mc,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',fontWeight:'600'}}>{t.addLbl}</button>
   </div>);
   return(<Card c={c}>
     <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'12px'}}>
@@ -2622,7 +2845,6 @@ function OutfitCard({dressCode, dressNote, city, date, mc, c, lang, t}){
 }
 
 
-
 // ─── RESULTS ─────────────────────────────────────────
 function Results({plan:ip,onBack,isOrg,c,lang}){
   const[plan,setPlan]=useState(ip);const t=T[lang];const isEs=lang==='es';
@@ -2713,7 +2935,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
         </div>
       </div>}
       {isOrgRef.current&&<div style={{marginBottom:'16px',display:'flex',gap:'6px',alignItems:'center',flexWrap:'wrap'}}>
-        <button onClick={togglePub} title={plan.isPublic?(isEs?'El plan aparece en Descubrir — haz clic para hacerlo privado':'Plan is visible in Discover — click to make it private'):(isEs?'Haz el plan público para que aparezca en Descubrir':'Make the plan public so it appears in Discover')} style={{padding:'8px 16px',background:plan.isPublic?`${mc}15`:c.CARD,border:`1px solid ${plan.isPublic?mc+'50':c.BD}`,borderRadius:'10px',color:plan.isPublic?mc:c.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{plan.isPublic?t.isPublicLbl:t.makePublic}</button>
+        <button onClick={togglePub} title={plan.isPublic?(isEs?'El plan aparece en Descubrir — haz clic para hacerlo privado':'Plan is visible in Discover — click to make it private'):(t.makePublicTitle)} style={{padding:'8px 16px',background:plan.isPublic?`${mc}15`:c.CARD,border:`1px solid ${plan.isPublic?mc+'50':c.BD}`,borderRadius:'10px',color:plan.isPublic?mc:c.M2,fontSize:'12px',fontWeight:'600',cursor:'pointer',fontFamily:'inherit'}}>{plan.isPublic?t.isPublicLbl:t.makePublic}</button>
       </div>}
       {/* Smart summary for organizer */}
       {isOrgRef.current&&!ldg&&total>0&&!plan.confirmedDate&&(()=>{
@@ -2726,7 +2948,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
           :`${topY} of ${total} can make ${fmtShort(topDate,lang)}${topM>0?` · ${topM} maybe`:''}${noResp>0?` · ${noResp} yet to respond`:''}.`;
         return(<div style={{background:`${mc}10`,border:`1px solid ${mc}30`,borderRadius:'12px',padding:'12px 16px',marginBottom:'14px',display:'flex',justifyContent:'space-between',alignItems:'center',gap:'10px'}}>
           <div style={{fontSize:'14px',color:c.T,fontWeight:'500',lineHeight:1.4}}>{msg}</div>
-          <Btn onClick={()=>confirmDate(topDate)} disabled={conf} sm c={c} accent={mc} style={{flexShrink:0,fontSize:'12px',padding:'8px 12px'}}>{conf?'...':isEs?'Confirmar':'Confirm'}</Btn>
+          <Btn onClick={()=>confirmDate(topDate)} disabled={conf} sm c={c} accent={mc} style={{flexShrink:0,fontSize:'12px',padding:'8px 12px'}}>{conf?'...':t.confirmBtn2}</Btn>
         </div>);
       })()}
       {/* TABS */}
@@ -2882,8 +3104,14 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
 
       {/* EXTRAS tab = Gift + Expenses + Pay + Plan card */}
       {!ldg&&tab==='extras'&&<div style={{display:'flex',flexDirection:'column',gap:'10px'}}>
-        {/* Expense splitter */}
-        <ExpenseSplitter plan={plan} rs={rs} mc={mc} c={c} lang={lang}/>
+        {/* Empty state when no extras */}
+        {!plan.gift&&!plan.bring?.filter(b=>b.text||typeof b==='string').length&&!plan.dressCode&&budget===0&&!plan.confirmedDate&&<div style={{textAlign:'center',padding:'40px 24px',color:c.M2}}>
+          <div style={{fontSize:'32px',marginBottom:'12px'}}>🎁</div>
+          <div style={{fontSize:'14px'}}>{isEs?'Este plan no tiene extras configurados.':'This plan has no extras configured.'}</div>
+          {isOrgRef.current&&<div style={{fontSize:'12px',marginTop:'8px',color:c.M}}>{isEs?'Puedes añadirlos al editar el plan.':'You can add them when editing the plan.'}</div>}
+        </div>}
+        {/* Expense splitter - always show for splitting costs */}
+        <ExpenseSplitter plan={plan} rs={rs||[]} mc={mc} c={c} lang={lang}/>
         {/* Gift */}
         {plan.gift&&<Card c={c} accent>
           <Lbl c={c}>{t.giftSec}</Lbl>
@@ -2916,7 +3144,7 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
           </div>
           <div style={{fontSize:'12px',color:c.M2,textAlign:'center',marginTop:'8px'}}>{t.hintScreenshot}</div>
         </Card>}
-        <AfterPlanSuggestions plan={plan} c={c} lang={lang}/>
+        {plan.city&&<AfterPlanSuggestions plan={plan} c={c} lang={lang}/>}
         {/* Suggested dates from guests */}
         {isOrgRef.current&&rs.some(r=>r.altDate)&&<Card c={c} style={{border:'1px solid #f59e0b30',background:'#f59e0b06'}}>
           <Lbl c={c}>📅 {t.datesSuggestedLbl}</Lbl>
@@ -2933,113 +3161,142 @@ function Results({plan:ip,onBack,isOrg,c,lang}){
 
 
 // ─── AUTH SCREEN ─────────────────────────────────────
-function AuthScreen({onAuth,c,lang}){
+function AuthScreen({onAuth,c,lang,onLangChange}){
   const t=T[lang];const isEs=lang==='es';
-  const[step,setStep]=useState('email');
-  const[langMenuOpen,setLangMenuOpen]=useState(false); // email | otp | name
+  const[mode,setMode]=useState('login'); // login | register | reset
   const[email,setEmail]=useState('');
-  const[otp,setOtp]=useState('');
+  const[password,setPassword]=useState('');
   const[name,setName]=useState('');
   const[username,setUsername]=useState('');
   const[loading,setLoading]=useState(false);
   const[err,setErr]=useState('');
-  const[sent,setSent]=useState(false);
+  const[msg,setMsg]=useState('');
+  const[showPass,setShowPass]=useState(false);
+  const[langMenuOpen,setLangMenuOpen]=useState(false);
 
-  const sendOtp=async()=>{
+  const validate=()=>{
+    if(!email.trim()||!email.includes('@')){setErr(t.authInvalidEmail);return false;}
+    if(mode!=='reset'&&password.length<6){setErr(isEs?'La contraseña debe tener al menos 6 caracteres':'Password must be at least 6 characters');return false;}
+    if(mode==='register'&&!name.trim()){setErr(t.authEnterName);return false;}
+    return true;
+  };
+
+  const handleLogin=async()=>{
+    if(!validate())return;
+    setLoading(true);setErr('');
+    const{data,error}=await authSignIn(email.trim().toLowerCase(),password);
+    if(error){setErr(isEs?'Email o contraseña incorrectos.':'Incorrect email or password.');setLoading(false);return;}
+    const prof=await loadProfile(data.user.id);
+    onAuth(data.user,prof||{name:data.user.email,email:data.user.email,contacts:[]});
+    setLoading(false);
+  };
+
+  const handleRegister=async()=>{
+    if(!validate())return;
+    setLoading(true);setErr('');
+    const{data,error}=await authSignUp(email.trim().toLowerCase(),password);
+    if(error){
+      if(error.message?.includes('already registered')||error.message?.includes('already been registered')){
+        setErr(isEs?'Este email ya está registrado. Inicia sesión.':'This email is already registered. Sign in.');
+      }else{
+        setErr(isEs?'Error al crear la cuenta. Intenta de nuevo.':'Error creating account. Try again.');
+      }
+      setLoading(false);return;
+    }
+    const prof={name:name.trim(),username:username.trim()||null,email:email.trim().toLowerCase(),lang,contacts:[]};
+    await saveProfile(data.user.id,prof);
+    onAuth(data.user,prof);
+    setLoading(false);
+  };
+
+  const handleReset=async()=>{
     if(!email.trim()||!email.includes('@')){setErr(t.authInvalidEmail);return;}
     setLoading(true);setErr('');
-    const{error}=await authSignIn(email.trim().toLowerCase());
-    if(error){setErr(t.authSendError);setLoading(false);return;}
-    setSent(true);setStep('otp');setLoading(false);
+    const{error}=await authResetPassword(email.trim().toLowerCase());
+    if(error){setErr(isEs?'Error al enviar el email.':'Error sending email.');setLoading(false);return;}
+    setMsg(isEs?'Email enviado. Revisa tu bandeja de entrada.':'Email sent. Check your inbox.');
+    setLoading(false);
   };
 
-  const verifyOtp=async()=>{
-    if(otp.length<6){setErr(t.authCodeLength);return;}
-    setLoading(true);setErr('');
-    const{data,error}=await authVerifyOtp(email.trim().toLowerCase(),otp.trim());
-    if(error){setErr(t.authCodeError);setLoading(false);return;}
-    // Check if profile exists
-    const prof=await loadProfile(data.user.id);
-    if(!prof||!prof.name){
-      setStep('name');setLoading(false);
-    }else{
-      onAuth(data.user,prof);
-    }
-  };
+  const FLAGS={es:'🇪🇸',en:'🇬🇧',pt:'🇵🇹',fr:'🇫🇷',de:'🇩🇪',it:'🇮🇹'};
+  const LANG_NAMES={es:'Español',en:'English',pt:'Português',fr:'Français',de:'Deutsch',it:'Italiano'};
 
-  const saveName=async()=>{
-    if(!name.trim()){setErr(t.authEnterName);return;}
-    setLoading(true);
-    const user=await getUser();
-    if(!user){setErr('Session error');setLoading(false);return;}
-    const prof={name:name.trim(),username:username.trim()||null,email:user.email,lang,contacts:[]};
-    await saveProfile(user.id,prof);
-    onAuth(user,prof);
-  };
-
-  return(<div style={{minHeight:'100vh',background:c.BG,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}}>
-    <div style={{width:'100%',maxWidth:'380px'}}>
-      <div style={{textAlign:'center',marginBottom:'40px'}}>
-        <div style={{display:'flex',justifyContent:'flex-end',marginBottom:'12px'}}>
-          <div style={{position:'relative'}} onClick={e=>e.stopPropagation()}>
-            <button onClick={()=>setLangMenuOpen(o=>!o)} style={{background:'transparent',border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'5px 10px',cursor:'pointer',fontSize:'14px',display:'flex',alignItems:'center',gap:'4px',color:c.T,fontFamily:'inherit'}}>
-              {({es:'🇪🇸',en:'🇬🇧',pt:'🇵🇹',fr:'🇫🇷',de:'🇩🇪',it:'🇮🇹'})[lang]} <span style={{fontSize:'11px'}}>{lang.toUpperCase()}</span> <span style={{fontSize:'10px',color:c.M}}>▾</span>
-            </button>
-            {langMenuOpen&&<div style={{position:'absolute',right:0,top:'calc(100% + 4px)',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',boxShadow:'0 8px 24px rgba(0,0,0,.3)',zIndex:100,overflow:'hidden',minWidth:'130px'}}>
-              {['es','en','pt','fr','de','it'].map(l=><button key={l} onClick={()=>{onLangChange(l);setLangMenuOpen(false);}} style={{display:'flex',alignItems:'center',gap:'8px',width:'100%',padding:'10px 14px',background:l===lang?`${c.A}15`:'transparent',border:'none',borderBottom:`1px solid ${c.BD}`,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',color:l===lang?c.A:c.T,fontWeight:l===lang?'700':'400',textAlign:'left'}}>
-                <span>{({es:'🇪🇸',en:'🇬🇧',pt:'🇵🇹',fr:'🇫🇷',de:'🇩🇪',it:'🇮🇹'})[l]}</span>
-                <span>{({es:'Español',en:'English',pt:'Português',fr:'Français',de:'Deutsch',it:'Italiano'})[l]}</span>
-                {l===lang&&<span style={{marginLeft:'auto',color:c.A}}>✓</span>}
-              </button>)}
-            </div>}
-          </div>
+  return(<div style={{minHeight:'100vh',background:c.BG,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',padding:'24px'}} onClick={()=>setLangMenuOpen(false)}>
+    <div style={{width:'100%',maxWidth:'400px'}}>
+      {/* Header */}
+      <div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:'40px'}}>
+        <div style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'32px',color:c.T,letterSpacing:'-.02em'}}>queda<span style={{color:c.A}}>.</span></div>
+        <div style={{position:'relative'}} onClick={e=>e.stopPropagation()}>
+          <button onClick={()=>setLangMenuOpen(o=>!o)} style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'8px',padding:'6px 10px',cursor:'pointer',fontSize:'14px',display:'flex',alignItems:'center',gap:'4px',color:c.T,fontFamily:'inherit'}}>
+            {FLAGS[lang]} <span style={{fontSize:'11px'}}>{lang.toUpperCase()}</span> <span style={{fontSize:'10px',color:c.M}}>▾</span>
+          </button>
+          {langMenuOpen&&<div style={{position:'absolute',right:0,top:'calc(100% + 4px)',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',boxShadow:'0 8px 24px rgba(0,0,0,.3)',zIndex:100,overflow:'hidden',minWidth:'130px'}}>
+            {['es','en','pt','fr','de','it'].map(l=><button key={l} onClick={()=>{onLangChange(l);setLangMenuOpen(false);}} style={{display:'flex',alignItems:'center',gap:'8px',width:'100%',padding:'10px 14px',background:l===lang?`${c.A}15`:'transparent',border:'none',borderBottom:`1px solid ${c.BD}`,cursor:'pointer',fontFamily:'inherit',fontSize:'13px',color:l===lang?c.A:c.T,fontWeight:l===lang?'700':'400',textAlign:'left'}}>
+              <span>{FLAGS[l]}</span><span>{LANG_NAMES[l]}</span>
+              {l===lang&&<span style={{marginLeft:'auto',color:c.A}}>✓</span>}
+            </button>)}
+          </div>}
         </div>
-        <div style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'36px',color:c.T,letterSpacing:'-.02em',marginBottom:'8px'}}>queda<span style={{color:c.A}}>.</span></div>
-        <div style={{fontSize:'15px',color:c.M2}}>{t.sub}</div>
       </div>
 
-      {step==='email'&&<div>
-        <div style={{fontSize:'20px',fontWeight:'700',color:c.T,marginBottom:'8px'}}>{isEs?'¿Cuál es tu email?':"What's your email?"}</div>
-        <div style={{fontSize:'14px',color:c.M2,marginBottom:'24px'}}>{isEs?'Te mandamos un código para entrar. Sin contraseña.':"We'll send you a code to sign in. No password needed."}</div>
-        <input value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&sendOtp()} type="email" placeholder="tu@email.com" autoFocus style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'12px',padding:'14px 16px',color:c.T,fontSize:'16px',fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:'12px'}}/>
-        {err&&<div style={{color:'#ef4444',fontSize:'13px',marginBottom:'10px'}}>{err}</div>}
-        <button onClick={sendOtp} disabled={loading||!email.trim()} style={{width:'100%',padding:'15px',background:email.trim()?c.A:'#555',color:'#0A0A0A',border:'none',borderRadius:'12px',fontSize:'16px',fontWeight:'700',cursor:email.trim()?'pointer':'not-allowed',fontFamily:'inherit',opacity:loading?0.6:1}}>
-          {loading?(t.authSending):(t.authContinue)}
-        </button>
-      </div>}
-
-      {step==='otp'&&<div>
-        <div style={{fontSize:'20px',fontWeight:'700',color:c.T,marginBottom:'8px'}}>{t.authCheckEmail}</div>
-        <div style={{fontSize:'14px',color:c.M2,marginBottom:'6px'}}>{t.weSentLinkTo}</div>
-        <div style={{fontSize:'14px',color:c.A,fontWeight:'600',marginBottom:'24px'}}>{email}</div>
-        <div style={{background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'12px',padding:'16px',marginBottom:'20px',fontSize:'13px',color:c.M2,lineHeight:1.6}}>
-          {t.authClickLink}
-        </div>
-        <button onClick={()=>{setStep('email');setSent(false);setOtp('');setErr('');}} style={{width:'100%',padding:'12px',background:'transparent',color:c.M2,border:`1px solid ${c.BD}`,borderRadius:'12px',fontSize:'14px',cursor:'pointer',fontFamily:'inherit'}}>
-          {t.authChangeEmail}
-        </button>
-        {err&&<div style={{color:'#ef4444',fontSize:'13px',marginTop:'10px'}}>{err}</div>}
-        <div style={{marginTop:'20px',textAlign:'center'}}>
-          <div style={{fontSize:'13px',color:c.M2,marginBottom:'8px'}}>{isEs?'¿No llegó el email? Introduce el código de 6 dígitos:':"Didn't get the email? Enter the 6-digit code:"}</div>
-          <input value={otp} onChange={e=>setOtp(e.target.value.replace(/[^0-9]/g,'').slice(0,6))} onKeyDown={e=>e.key==='Enter'&&verifyOtp()} placeholder="123456" maxLength={6} style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'12px',padding:'14px',color:c.T,fontSize:'24px',fontFamily:'monospace',letterSpacing:'.3em',textAlign:'center',outline:'none',boxSizing:'border-box',marginBottom:'10px'}}/>
-          <button onClick={verifyOtp} disabled={loading||otp.length<6} style={{width:'100%',padding:'13px',background:otp.length===6?c.A:'#555',color:'#0A0A0A',border:'none',borderRadius:'12px',fontSize:'15px',fontWeight:'700',cursor:otp.length===6?'pointer':'not-allowed',fontFamily:'inherit',opacity:loading?0.6:1}}>
-            {loading?(t.authVerifying):(t.authSignIn)}
+      {/* Mode tabs */}
+      <div style={{display:'flex',gap:'4px',background:c.CARD2,borderRadius:'10px',padding:'4px',marginBottom:'28px'}}>
+        {[['login',isEs?'Entrar':'Sign in'],['register',isEs?'Registrarse':'Register']].map(([m,lbl])=>(
+          <button key={m} onClick={()=>{setMode(m);setErr('');setMsg('');}} style={{flex:1,padding:'9px',borderRadius:'7px',border:'none',background:mode===m?c.CARD:'transparent',color:mode===m?c.T:c.M2,fontWeight:mode===m?'700':'400',cursor:'pointer',fontFamily:'inherit',fontSize:'14px',transition:'all .15s'}}>
+            {lbl}
           </button>
-        </div>
-      </div>}
+        ))}
+      </div>
 
-      {step==='name'&&<div>
-        <div style={{fontSize:'20px',fontWeight:'700',color:c.T,marginBottom:'8px'}}>{t.authWelcome}</div>
-        <div style={{fontSize:'14px',color:c.M2,marginBottom:'24px'}}>{t.authWhatName}</div>
-        <input value={name} onChange={e=>setName(e.target.value)} onKeyDown={e=>e.key==='Enter'&&saveName()} placeholder={t.editName} autoFocus style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'12px',padding:'14px 16px',color:c.T,fontSize:'16px',fontFamily:'inherit',outline:'none',boxSizing:'border-box',marginBottom:'12px'}}/>
-        {err&&<div style={{color:'#ef4444',fontSize:'13px',marginBottom:'10px'}}>{err}</div>}
-        <button onClick={saveName} disabled={loading||!name.trim()} style={{width:'100%',padding:'15px',background:name.trim()?c.A:'#555',color:'#0A0A0A',border:'none',borderRadius:'12px',fontSize:'16px',fontWeight:'700',cursor:name.trim()?'pointer':'not-allowed',fontFamily:'inherit',opacity:loading?0.6:1}}>
-          {loading?(t.authSaving):(t.authGetStarted)}
+      {/* Form */}
+      <div style={{display:'flex',flexDirection:'column',gap:'12px'}}>
+        {mode==='reset'&&<div style={{fontSize:'14px',color:c.M2,marginBottom:'4px'}}>{isEs?'Introduce tu email y te mandamos un link para restablecer la contraseña.':'Enter your email and we will send you a link to reset your password.'}</div>}
+
+        {mode==='register'&&<>
+          <div>
+            <div style={{fontSize:'11px',color:c.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'5px'}}>{t.authNameLabel||isEs?'Tu nombre':'Your name'}</div>
+            <input value={name} onChange={e=>setName(e.target.value)} placeholder={isEs?'Nombre visible':'Display name'} style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px 14px',color:c.T,fontSize:'15px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
+          </div>
+          <div>
+            <div style={{fontSize:'11px',color:c.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'5px'}}>{t.authAliasLabel||isEs?'Alias (opcional)':'Alias (optional)'}</div>
+            <div style={{position:'relative'}}>
+              <span style={{position:'absolute',left:'14px',top:'50%',transform:'translateY(-50%)',color:c.M,fontSize:'15px',fontWeight:'600'}}>@</span>
+              <input value={username} onChange={e=>setUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_.]/g,'').slice(0,20))} placeholder="tu_alias" style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px 14px 12px 30px',color:c.T,fontSize:'15px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
+            </div>
+          </div>
+        </>}
+
+        <div>
+          <div style={{fontSize:'11px',color:c.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'5px'}}>Email</div>
+          <input value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(mode==='reset'?handleReset():mode==='register'?handleRegister():handleLogin())} type="email" placeholder={isEs?'tu@email.com':'you@email.com'} autoFocus style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px 14px',color:c.T,fontSize:'15px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
+        </div>
+
+        {mode!=='reset'&&<div>
+          <div style={{fontSize:'11px',color:c.M,fontWeight:'600',letterSpacing:'.07em',textTransform:'uppercase',marginBottom:'5px'}}>{isEs?'Contraseña':'Password'}</div>
+          <div style={{position:'relative'}}>
+            <input value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={e=>e.key==='Enter'&&(mode==='register'?handleRegister():handleLogin())} type={showPass?'text':'password'} placeholder={mode==='register'?(isEs?'Mínimo 6 caracteres':'At least 6 characters'):'••••••••'} style={{width:'100%',background:c.CARD,border:`1px solid ${c.BD}`,borderRadius:'10px',padding:'12px 44px 12px 14px',color:c.T,fontSize:'15px',fontFamily:'inherit',outline:'none',boxSizing:'border-box'}}/>
+            <button onClick={()=>setShowPass(s=>!s)} style={{position:'absolute',right:'12px',top:'50%',transform:'translateY(-50%)',background:'none',border:'none',color:c.M,cursor:'pointer',fontSize:'16px',padding:'4px'}}>{showPass?'🙈':'👁'}</button>
+          </div>
+        </div>}
+
+        {err&&<div style={{color:'#ef4444',fontSize:'13px',padding:'8px 12px',background:'#ef444410',borderRadius:'8px',border:'1px solid #ef444430'}}>{err}</div>}
+        {msg&&<div style={{color:'#22c55e',fontSize:'13px',padding:'8px 12px',background:'#22c55e10',borderRadius:'8px',border:'1px solid #22c55e30'}}>{msg}</div>}
+
+        <button onClick={mode==='reset'?handleReset:mode==='register'?handleRegister:handleLogin} disabled={loading} style={{width:'100%',padding:'14px',background:c.A,color:'#0A0A0A',border:'none',borderRadius:'10px',fontSize:'16px',fontWeight:'700',cursor:loading?'not-allowed':'pointer',fontFamily:'inherit',opacity:loading?0.7:1,marginTop:'4px'}}>
+          {loading?'...':(mode==='reset'?(isEs?'Enviar email':'Send email'):(mode==='register'?(isEs?'Crear cuenta':'Create account'):(isEs?'Entrar':'Sign in')))}
         </button>
-      </div>}
+
+        {mode==='login'&&<button onClick={()=>{setMode('reset');setErr('');setMsg('');}} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontSize:'13px',fontFamily:'inherit',padding:'4px',textAlign:'center'}}>
+          {isEs?'¿Olvidaste tu contraseña?':'Forgot your password?'}
+        </button>}
+        {mode==='reset'&&<button onClick={()=>{setMode('login');setErr('');setMsg('');}} style={{background:'none',border:'none',color:c.M2,cursor:'pointer',fontSize:'13px',fontFamily:'inherit',padding:'4px',textAlign:'center'}}>
+          {isEs?'← Volver al login':'← Back to sign in'}
+        </button>}
+      </div>
     </div>
   </div>);
 }
+
 
 // ─── APP ─────────────────────────────────────────────
 function App(){
@@ -3066,7 +3323,6 @@ function App(){
   const tgTheme=()=>setTheme(t=>{const n=t==='dark'?'light':'dark';applyTheme(n);ls.set('q_theme',n);return n;});
   const LANGS=['es','en','pt','fr','de','it'];
   const LANG_FLAGS={es:'🇪🇸',en:'🇬🇧',pt:'🇵🇹',fr:'🇫🇷',de:'🇩🇪',it:'🇮🇹'};
-  const tgLang=()=>setLang(l=>{const idx=LANGS.indexOf(l);const n=LANGS[(idx+1)%LANGS.length];ls.set('q_lang',n);return n;});
 
   // Auth: check session on load + listen for changes
   useEffect(()=>{
@@ -3089,11 +3345,17 @@ function App(){
       setAuthLoading(false);
     });
     const{data:{subscription}}=db.auth.onAuthStateChange(async(event,session)=>{
+      // Clear auth tokens from URL hash after magic link login
+      if(event==='SIGNED_IN'&&window.location.hash&&window.location.hash.includes('access_token')){
+        window.history.replaceState(null,'',window.location.pathname+window.location.search);
+      }
       if(session?.user){
-        const prof=await loadProfile(session.user.id);
-        setAuthUser(session.user);
-        setProfile(prof);
-        if(prof?.lang)setLang(prof.lang);
+        try{
+          const prof=await loadProfile(session.user.id);
+          setAuthUser(session.user);
+          setProfile(prof);
+          if(prof?.lang)setLang(prof.lang);
+        }catch(e){console.error(e);}
       }else{
         setAuthUser(null);setProfile(null);
       }
@@ -3115,7 +3377,7 @@ function App(){
     const code=new URLSearchParams(location.search).get('code');
     if(code){loadPlan(code).then(p=>{if(p){setPlan(p);setIsOrg(false);setScreen('preview');}});return;}
     const saved=ls.get('q_state',null);
-    if(saved?.planId){loadPlan(saved.planId).then(p=>{if(p){setPlan(p);setIsOrg(saved.isOrg||false);setScreen(saved.screen||'home');}});}
+    if(saved?.planId){loadPlan(saved.planId).then(p=>{if(p){setPlan(p);setIsOrg(false);setScreen(saved.screen||'home');}});}
   },[]);
   const nav=(s,p=null,org=false)=>{setScreen(s);if(p)setPlan(p);if(!p&&s==='home'){setPlan(null);setIsOrg(false);}else setIsOrg(org);if(s!=='home')ls.set('q_state',{screen:s,planId:p?.id||plan?.id,isOrg:org});else ls.set('q_state',{});};
   const handleJoin=async code=>{const p=await loadPlan(code);if(p){setPlan(p);setIsOrg(false);setScreen('preview');ls.set('q_state',{screen:'preview',planId:p.id,isOrg:false});return true;}return false;};
@@ -3124,7 +3386,7 @@ function App(){
   const mc=plan?.mode?getMC(plan.mode,c):c.A;
   const noNav=['home','create','select-mode','profile','discover','preview'];
   if(authLoading)return(<div style={{minHeight:'100vh',background:c.BG,display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',gap:'16px'}}><div style={{fontFamily:"'Syne',serif",fontWeight:'800',fontSize:'28px',color:c.T}}>queda<span style={{color:c.A}}>.</span></div><div style={{width:'24px',height:'24px',border:`3px solid ${c.BD}`,borderTop:`3px solid ${c.A}`,borderRadius:'50%',animation:'spin 1s linear infinite'}}/></div>);
-  if(!authUser)return<AuthScreen onAuth={handleAuth} c={c} lang={lang} onLangChange={l=>{setLang(l);ls.set('q_lang',l);}}/>;;
+  if(!authUser)return<AuthScreen onAuth={handleAuth} c={c} lang={lang} onLangChange={l=>{setLang(l);ls.set('q_lang',l);}}/>
   return(<div style={{minHeight:'100vh',background:c.BG,color:c.T,fontFamily:"'DM Sans',system-ui,sans-serif"}} onClick={()=>setLangOpen(false)}>
     {toast&&<div style={{position:'fixed',bottom:'24px',left:'50%',transform:'translateX(-50%)',background:'#ef4444',color:'#fff',padding:'12px 20px',borderRadius:'30px',fontWeight:'600',fontSize:'13px',zIndex:300,boxShadow:'0 4px 20px rgba(0,0,0,.4)',whiteSpace:'nowrap',animation:'slideDown .3s ease'}}>⚠️ {toast}</div>}
     <div style={{borderBottom:`1px solid ${c.BD}`,padding:'14px 24px',display:'flex',alignItems:'center',justifyContent:'space-between',position:'sticky',top:0,background:c.BG+'F0',backdropFilter:'blur(10px)',zIndex:10}}>
