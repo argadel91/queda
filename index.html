@@ -3279,8 +3279,13 @@ function AuthScreen({onAuth,c,lang,onLangChange}){
         }
         setLoading(false);return;
       }
-      const prof=await loadProfile(data.user.id);
-      onAuth(data.user,prof||{name:data.user.email,email:data.user.email,contacts:[]});
+      let prof=await loadProfile(data.user.id);
+      if(!prof){
+        // No profile exists yet - create one
+        prof={name:data.user.email.split('@')[0],email:data.user.email,lang,contacts:[]};
+        await saveProfile(data.user.id,prof);
+      }
+      onAuth(data.user,prof);
     }catch(e){
       console.error('Login error:',e);
       setErr(t.authConnError);
@@ -3487,7 +3492,11 @@ function App(){
       clearTimeout(timeout);
       if(session?.user){
         try{
-          const prof=await loadProfile(session.user.id);
+          let prof=await loadProfile(session.user.id);
+          if(!prof){
+            prof={name:session.user.email.split('@')[0],email:session.user.email,contacts:[]};
+            await saveProfile(session.user.id,prof);
+          }
           setAuthUser(session.user);
           setProfile(prof);
           if(prof?.lang)setLang(prof.lang);
